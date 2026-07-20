@@ -33,6 +33,46 @@ Automatic process discovery estimates session presence, PID, and project path. T
 
 ## 2. Install and run
 
+### Recommended (prebuilt binary)
+
+Install the latest release into `~/.local/bin` (no Rust toolchain, no `sudo`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bengHak/llmeter/master/scripts/install.sh | sh
+```
+
+Pin a version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bengHak/llmeter/master/scripts/install.sh | LLMETER_VERSION=0.1.0 sh
+```
+
+Defaults and overrides:
+
+- Install path: `~/.local/bin` (override with `INSTALL_DIR`)
+- Ensure `~/.local/bin` is on your `PATH` if the installer prints a hint
+- Manual downloads: [GitHub Releases](https://github.com/bengHak/llmeter/releases)
+
+Supported platforms:
+
+- macOS arm64 (`aarch64-apple-darwin`)
+- Linux x86_64 (`x86_64-unknown-linux-gnu`)
+- Linux arm64 (`aarch64-unknown-linux-gnu`)
+
+Not supported in this installer: Windows; macOS Intel (x86_64). Binaries are not notarized—on macOS you may need to clear quarantine (`xattr -d com.apple.quarantine ~/.local/bin/llmeter`) if Gatekeeper blocks the binary.
+
+Review before piping (optional):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bengHak/llmeter/master/scripts/install.sh -o install.sh
+less install.sh
+sh install.sh
+```
+
+The installer verifies the downloaded tarball against the release `SHA256SUMS` before installing.
+
+### Developer path (from source)
+
 Requires Rust 1.85 or later.
 
 ```bash

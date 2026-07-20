@@ -1,0 +1,155 @@
+# Release packaging for llmeter prebuilt binaries.
+# Tag format: v0.1.0 (must match Cargo.toml [package].version without the leading v).
+# Publishes only after all three matrix targets succeed (no partial uploads).
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version and gate against Cargo.toml
+        id: ver
+        run: |
+          set -euo pipefail
+          # Expected tag: vX.Y.Z (semver). Strip leading v for artifact names.
+          TAG="${GITHUB_REF_NAME}"
+          case "$TAG" in
+            v*) VERSION="${TAG#v}" ;;
+            *)
+              echo "Tag must start with v (got: ${TAG})"
+              exit 1
+              ;;
+          esac
+          CARGO_VERSION=$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)
+          if [ -z "$CARGO_VERSION" ]; then
+            echo "Could not parse version from Cargo.toml"
+            exit 1
+          fi
+          if [ "$VERSION" != "$CARGO_VERSION" ]; then
+            echo "Tag version (${VERSION}) does not match Cargo.toml package version (${CARGO_VERSION})"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Publishing version ${VERSION} from tag ${TAG}"
+
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-14
+            use_cross: false
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            use_cross: false
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            use_cross: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.85.0"
+          targets: ${{ matrix.target }}
+
+      - name: Install cross (Linux aarch64)
+        if: matrix.use_cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build release binary
+        env:
+          TARGET: ${{ matrix.target }}
+          USE_CROSS: ${{ matrix.use_cross }}
+        run: |
+          set -euo pipefail
+          if [ "${USE_CROSS}" = "true" ]; then
+            cross build --release --target "${TARGET}"
+          else
+            cargo build --release --target "${TARGET}"
+          fi
+          test -x "target/${TARGET}/release/llmeter"
+
+      - name: Package tarball
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          ARCHIVE="llmeter-${VERSION}-${TARGET}.tar.gz"
+          # Root-level binary only (no parent directory wrapper).
+          tar -czf "dist/${ARCHIVE}" -C "target/${TARGET}/release" llmeter
+          # Confirm archive contains ./llmeter at root.
+          tar -tzf "dist/${ARCHIVE}" | grep -qx 'llmeter'
+          ls -la dist/
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llmeter-${{ needs.prepare.outputs.version }}-${{ matrix.target }}
+          path: dist/llmeter-${{ needs.prepare.outputs.version }}-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all matrix artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: llmeter-${{ needs.prepare.outputs.version }}-*
+          merge-multiple: true
+
+      - name: Collect tarballs and generate SHA256SUMS
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # download-artifact with merge-multiple puts files under artifacts/
+          find artifacts -type f -name "llmeter-${VERSION}-*.tar.gz" -exec cp {} dist/ \;
+          cd dist
+          count=$(ls -1 llmeter-${VERSION}-*.tar.gz 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$count" != "3" ]; then
+            echo "Expected 3 tarballs, found ${count}:"
+            ls -la
+            exit 1
+          fi
+          # GNU sha256sum two-space format (compatible with shasum -a 256 -c style parsing).
+          sha256sum llmeter-${VERSION}-*.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+          ls -la
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          name: llmeter ${{ needs.prepare.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          files: |
+            dist/llmeter-${{ needs.prepare.outputs.version }}-*.tar.gz
+            dist/SHA256SUMS
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
