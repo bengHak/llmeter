@@ -118,6 +118,14 @@ const KIRO_TRANSPORTS: &[Transport] = &[
     Transport::Hook,
     Transport::Acp,
 ];
+const GROK_BUILD_TRANSPORTS: &[Transport] = &[
+    Transport::Process,
+    Transport::SessionFile,
+    Transport::JsonLines,
+    Transport::JsonRpc,
+    Transport::Hook,
+    Transport::Acp,
+];
 
 const PI_CAPABILITIES: &[Capability] = &[
     Capability::Discovery,
@@ -193,6 +201,18 @@ const KIRO_CAPABILITIES: &[Capability] = &[
     Capability::WaitingState,
     Capability::ModelMetadata,
 ];
+const GROK_BUILD_CAPABILITIES: &[Capability] = &[
+    Capability::Discovery,
+    Capability::SessionLifecycle,
+    Capability::TurnBoundary,
+    Capability::OutputDelta,
+    Capability::ToolSpan,
+    Capability::Usage,
+    Capability::ContextWindow,
+    Capability::WaitingState,
+    Capability::RetryState,
+    Capability::ModelMetadata,
+];
 
 const TOOLS: &[ToolDescriptor] = &[
     ToolDescriptor {
@@ -266,6 +286,15 @@ const TOOLS: &[ToolDescriptor] = &[
         session_roots: &["~/.kiro/sessions/cli"],
         transports: KIRO_TRANSPORTS,
         capabilities: KIRO_CAPABILITIES,
+    },
+    ToolDescriptor {
+        id: ToolId::GrokBuild,
+        display_name: "Grok Build",
+        executables: &["grok", "xai-grok-pager", "xai-grok-shell"],
+        process_markers: &["xai-grok-pager", "xai-grok-shell", "grok-build"],
+        session_roots: &["~/.grok/sessions"],
+        transports: GROK_BUILD_TRANSPORTS,
+        capabilities: GROK_BUILD_CAPABILITIES,
     },
 ];
 

@@ -15,7 +15,7 @@
 
 ## 1. 현재 구현 범위
 
-Phase 1과 Phase 2의 8개 도구가 하나의 정규화 이벤트 모델을 사용합니다.
+Phase 1과 Phase 2의 8개 도구와 Grok Build가 하나의 정규화 이벤트 모델을 사용합니다.
 
 | 단계 | 도구 | 입력 표면 | 자동 탐색 |
 |---|---|---|---|
@@ -27,6 +27,7 @@ Phase 1과 Phase 2의 8개 도구가 하나의 정규화 이벤트 모델을 사
 | 2 | OpenCode | server/SSE/run JSON | 프로세스 |
 | 2 | Qwen Code | hook, telemetry JSON, daemon event | 프로세스 |
 | 2 | Kiro CLI | hook, ACP JSON-RPC | 프로세스 |
+| 확장 | Grok Build | hook, streaming JSON, ACP, updates JSONL | `~/.grok/sessions/**/updates.jsonl` |
 
 자동 프로세스 탐지는 세션의 존재, PID, 프로젝트 경로를 추정합니다. TTFT와 출력 속도는 구조화 이벤트 또는 세션 파일이 연결된 경우에만 계산됩니다.
 
@@ -88,6 +89,7 @@ llmeter adapters
 llmeter setup pi
 llmeter setup claude
 llmeter setup codex
+llmeter setup grok-build
 ```
 
 ### Pi
@@ -156,35 +158,59 @@ llmeter --source kiro:/tmp/kiro-events.jsonl
 llmeter hook --tool kiro
 ```
 
+### Grok Build
+
+실행 중인 `grok`, `xai-grok-pager`, `xai-grok-shell` 프로세스를 발견하고, interactive 세션의 `~/.grok/sessions/**/updates.jsonl`을 자동으로 읽습니다. Headless와 ACP는 wrapper로 연결할 수 있습니다.
+
+```bash
+# hook 설정과 연결 명령 출력
+llmeter setup grok-build
+
+# headless streaming JSON
+llmeter wrap --tool grok-build -- \
+  grok --no-auto-update -p <prompt> --output-format streaming-json
+
+# ACP stdio
+llmeter wrap --tool grok-build -- \
+  grok --no-auto-update agent stdio
+
+# 저장된 업데이트를 normalized journal로 적재
+llmeter ingest --tool grok-build \
+  --file ~/.grok/sessions/<project>/<session>/updates.jsonl
+llmeter json
+```
+
+Grok의 프롬프트, 응답, 사고 내용과 도구 입출력 원문은 journal에 저장하지 않고 문자·바이트 변화량과 토큰 사용량만 남깁니다.
+
 ## 5. CLI 명령
 
 ```text
-llmeter [watch]
+lmeter [watch]
 llmeter --once --json
-llmeter replay <FILE> [--tool <TOOL>] [--json]
+llmeter replay <FILE> [--tool <TOOL=] [--json]
 llmeter ingest --tool <TOOL> --input <FILE|-> [--output <JOURNAL>]
 llmeter hook --tool <TOOL> [--output <JOURNAL>]
 llmeter doctor [--json]
 llmeter setup <TOOL>
-llmeter adapters [--json]
+mlmeter adapters [--json]
 ```
 
-주요 전역 옵션:
+주욤 전역 옵션:
 
 ```text
 --source <TOOL:PATH>       여러 번 지정 가능
---journal <PATH>           정규화 journal 경로
---no-auto-discover         프로세스와 기본 세션 루트 탐색 비활성화
---refresh-ms <MS>          TUI 갱신 주기, 기본 250ms
---process-scan-ms <MS>     프로세스·세션 파일 재탐색 주기, 기본 2000ms
---stall-threshold-ms <MS>  stall 임계값, 기본 2000ms
+--journal <PATH>           정규화 journal 겼로
+--no-auto-discover         프로세스와 기본 세션 루트 탐색 비활성왔
+--refresh-ms <MS>          TUI 개신 주기, 기본 250ms
+--process-scan-ms <MS>     프로세스과 세션 파일 재탐색 주기, 기본 2000ms
+--stall-threshold-ms <MS>  stall 임계값, 기룴 2000ms
 ```
 
-TUI 키:
+TUI 사용 키:
 
 ```text
-j/k 또는 ↑/↓  세션 선택
-p              일시 정지/재개
+j/k또는 ↑/↓  세션 선택
+p             일시 정지/재개
 r              즉시 갱신
 q 또는 Esc     종료
 ```
@@ -202,7 +228,7 @@ hook journal ──────┘                                      │
 코드는 단일 Rust crate 안에서 책임별 모듈로 분리됩니다.
 
 - `src/model.rs`: 정규화 이벤트와 세션 snapshot 모델
-- `src/adapters/`: 8개 도구 parser
+- `src/adapters/`: 9개 도구 parser
 - `src/discovery.rs`: 프로세스와 native session 탐색
 - `src/aggregate/`: TTFT/TPS/stall 상태 계산
 - `src/runtime.rs`: tailer, journal, 수집 루프
@@ -226,7 +252,7 @@ hook journal ──────┘                                      │
 ## 8. 알려진 제한
 
 - 외부 CLI 바이너리가 설치된 실제 사용자 환경에 대한 live smoke test는 포함하지 않았습니다. parser는 공식 이벤트 표면을 바탕으로 한 fixture와 replay 테스트로 검증했습니다.
-- OpenCode SSE, Qwen daemon SSE, Gemini OTLP를 직접 수신하는 네트워크 서버는 아직 없습니다. 현재는 JSONL로 기록된 이벤트를 tail하거나 구조화 stdout을 `ingest`로 스트리밍합니다.
-- 프로세스 발견과 세션 파일의 완전한 상관관계는 아직 구현하지 않아 같은 작업이 process-only 행과 native-session 행으로 함께 보일 수 있습니다.
+- OpenCode SSE, Qwen daemon SSE, Gemini OTLP를 직접 수신하는 네트워크 서버는 아직 없습닄. 현재는 JSONL로 기록된 이벤트를 tail하거나 구조화 stdout을 `ingest`로 스트리밍합니다.
+- 프로세스 발견과 세션 파일의 완전한 상관관계는 아직 구현하지 않아 같은 작업이 process-only 행과 native-session 행으로 함께 보일 수 있습닄.
 - Codex, Claude 등 내부 session 파일 schema가 변경되면 해당 parser fixture와 mapping을 갱신해야 합니다.
 - 동적 플러그인 ABI, 원격 호스트, Kubernetes, 웹 대시보드는 Phase 1–2 범위 밖입니다.

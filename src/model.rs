@@ -18,10 +18,11 @@ pub enum ToolId {
     OpenCode,
     Qwen,
     Kiro,
+    GrokBuild,
 }
 
 impl ToolId {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::Pi,
         Self::Droid,
         Self::Gemini,
@@ -30,6 +31,7 @@ impl ToolId {
         Self::OpenCode,
         Self::Qwen,
         Self::Kiro,
+        Self::GrokBuild,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -42,6 +44,7 @@ impl ToolId {
             Self::OpenCode => "opencode",
             Self::Qwen => "qwen",
             Self::Kiro => "kiro",
+            Self::GrokBuild => "grok-build",
         }
     }
 }
@@ -65,6 +68,8 @@ impl FromStr for ToolId {
             "opencode" | "open-code" => Ok(Self::OpenCode),
             "qwen" | "qwen-code" => Ok(Self::Qwen),
             "kiro" | "kiro-cli" => Ok(Self::Kiro),
+            "grok" | "grok-build" | "grok-cli" | "xai-grok" | "xai-grok-pager"
+            | "xai-grok-shell" => Ok(Self::GrokBuild),
             other => Err(format!("unsupported tool: {other}")),
         }
     }

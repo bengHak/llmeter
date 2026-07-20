@@ -3,6 +3,7 @@ mod codex;
 mod common;
 mod droid;
 mod gemini;
+mod grok_build;
 mod kiro;
 mod opencode;
 mod pi;
@@ -54,5 +55,6 @@ pub fn adapter_for(tool: ToolId) -> Box<dyn Adapter> {
         ToolId::OpenCode => Box::new(opencode::OpenCodeAdapter::default()),
         ToolId::Qwen => Box::new(qwen::QwenAdapter::default()),
         ToolId::Kiro => Box::new(kiro::KiroAdapter::default()),
+        ToolId::GrokBuild => Box::new(grok_build::GrokBuildAdapter::default()),
     }
 }

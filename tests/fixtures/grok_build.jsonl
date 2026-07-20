@@ -1,0 +1,25 @@
+{"hookEventName":"session_start","sessionId":"grok-hook-1","cwd":"/work/grok","model":"grok-4.5","timestamp":"2026-07-20T00:00:00Z"}
+{"hookEventName":"user_prompt_submit","sessionId":"grok-hook-1","prompt":"private hook prompt","timestamp":"2026-07-20T00:00:01Z"}
+{"hookEventName":"pre_tool_use","sessionId":"grok-hook-1","toolName":"run_terminal_command","toolUseId":"grok-hook-tool-1","toolInput":{"command":"private command"},"timestamp":"2026-07-20T00:00:02Z"}
+{"hookEventName":"post_tool_use","sessionId":"grok-hook-1","toolName":"run_terminal_command","toolUseId":"grok-hook-tool-1","toolResponse":"private tool result","timestamp":"2026-07-20T00:00:03Z"}
+{"hookEventName":"stop","sessionId":"grok-hook-1","reason":"end_turn","lastAssistantMessage":"private hook answer","timestamp":"2026-07-20T00:00:04Z"}
+{"hookEventName":"session_end","sessionId":"grok-hook-1","reason":"shutdown","timestamp":"2026-07-20T00:00:05Z"}
+{"type":"text","data":"private headless answer","timestamp":"2026-07-20T00:01:01Z"}
+{"type":"thought","data":"private headless thought","timestamp":"2026-07-20T00:01:02Z"}
+{"type":"end","stopReason":"end_turn","sessionId":"grok-headless-1","requestId":"request-1","usage":{"input_tokens":100,"cache_read_input_tokens":40,"output_tokens":12,"reasoning_tokens":4,"total_tokens":156},"modelUsage":{"grok-4.5":{"inputTokens":100,"outputTokens":12,"cacheReadInputTokens":40,"modelCalls":2}},"timestamp":"2026-07-20T00:01:03Z"}
+{"jsonrpc":"2.0","id":11,"method":"session/new","params":{"cwd":"/work/grok-acp","mcpServers":[]},"timestamp":"2026-07-20T00:02:00Z"}
+{"jsonrpc":"2.0","id":11,"result":{"sessionId":"grok-acp-1"},"timestamp":"2026-07-20T00:02:00.100Z"}
+{"jsonrpc":"2.0","id":12,"method":"session/prompt","params":{"sessionId":"grok-acp-1","prompt":[{"type":"text","text":"private acp prompt"}]},"timestamp":"2026-07-20T00:02:01Z"}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"grok-acp-1","update":{"sessionUpdate":"agent_thought_chunk","content":{"type":"text","text":"private acp thought"}}},"timestamp":"2026-07-20T00:02:02Z"}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"grok-acp-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"private acp answer"}}},"timestamp":"2026-07-20T00:02:03Z"}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"grok-acp-1","update":{"sessionUpdate":"tool_call","toolCallId":"grok-acp-tool-1","title":"Terminal","status":"in_progress","rawInput":{"command":"private acp command"}}},"timestamp":"2026-07-20T00:02:04Z"}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"grok-acp-1","update":{"sessionUpdate":"tool_call_update","toolCallId":"grok-acp-tool-1","status":"completed","rawOutput":"private acp output"}},"timestamp":"2026-07-20T00:02:05Z"}
+{"jsonrpc":"2.0","id":12,"result":{"stopReason":"end_turn","_meta":{"usage":{"inputTokens":180,"outputTokens":20,"cachedReadTokens":60,"reasoningTokens":6}}},"timestamp":"2026-07-20T00:02:06Z"}
+{"timestamp":1784505900,"method":"session/update","params":{"sessionId":"grok-persisted-1","update":{"sessionUpdate":"user_message_chunk","content":{"type":"text","text":"private persisted prompt"}}}}
+{"timestamp":1784505901,"method":"_x.ai/session/update","params":{"sessionId":"grok-persisted-1","update":{"sessionUpdate":"retry_state","type":"retrying","attempt":1,"maxRetries":3,"reason":"private retry reason"}}}
+{"timestamp":1784505902,"method":"_x.ai/session/update","params":{"sessionId":"grok-persisted-1","update":{"sessionUpdate":"pending_interaction","tool_call_id":"pending-1","kind":"permission"}}}
+{"timestamp":1784505903,"method":"session/update","params":{"sessionId":"grok-persisted-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"private persisted answer"}}}}
+{"timestamp":1784505904,"method":"session/update","params":{"sessionId":"grok-persisted-1","update":{"sessionUpdate":"tool_call","toolCallId":"grok-persisted-tool-1","title":"Terminal","status":"in_progress","rawInput":{"command":"private persisted command"}}}}
+{"timestamp":1784505905,"method":"session/update","params":{"sessionId":"grok-persisted-1","update":{"sessionUpdate":"tool_call_update","toolCallId":"grok-persisted-tool-1","status":"completed","rawOutput":"private persisted output"}}}
+{"timestamp":1784505906,"method":"_x.ai/session/update","params":{"sessionId":"grok-persisted-1","update":{"sessionUpdate":"model_changed","model_id":"grok-4.5","reasoning_effort":"high"}}}
+{"timestamp":1784505907,"method":"_x.ai/session/update","params":{"sessionId":"grok-persisted-1","update":{"sessionUpdate":"turn_completed","prompt_id":"persisted-prompt-1","stop_reason":"end_turn","agent_result":"private persisted final","usage":{"inputTokens":240,"outputTokens":32,"cachedReadTokens":80,"reasoningTokens":9}}}}

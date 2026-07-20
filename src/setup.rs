@@ -61,6 +61,28 @@ pub fn setup_snippet(tool: ToolId, binary: &str) -> Result<String> {
         ToolId::Qwen => format!(
             "{binary} wrap --tool qwen -- qwen --output-format stream-json --include-partial-messages -p <prompt>"
         ),
+        ToolId::GrokBuild => {
+            let hooks = command_hook_json_without_matcher(
+                &[
+                    "SessionStart",
+                    "UserPromptSubmit",
+                    "PreToolUse",
+                    "PostToolUse",
+                    "PostToolUseFailure",
+                    "PermissionDenied",
+                    "Stop",
+                    "StopFailure",
+                    "Notification",
+                    "SubagentStart",
+                    "SubagentStop",
+                    "SessionEnd",
+                ],
+                &command,
+            );
+            format!(
+                "# Save this hook configuration as ~/.grok/hooks/llmeter.json\n{hooks}\n\n# Exact headless streaming path:\n{binary} wrap --tool grok-build -- grok --no-auto-update -p <prompt> --output-format streaming-json\n\n# ACP path:\n{binary} wrap --tool grok-build -- grok --no-auto-update agent stdio\n\n# Existing interactive sessions are discovered under ~/.grok/sessions/**/updates.jsonl."
+            )
+        }
     };
     Ok(snippet)
 }
@@ -72,6 +94,24 @@ fn command_hook_json(events: &[&str], command: &str) -> String {
             (*event).to_owned(),
             serde_json::json!([{
                 "matcher": "*",
+                "hooks": [{
+                    "type": "command",
+                    "command": command,
+                    "timeout": 5
+                }]
+            }]),
+        );
+    }
+    serde_json::to_string_pretty(&serde_json::json!({ "hooks": hooks }))
+        .expect("hook snippet is serializable")
+}
+
+fn command_hook_json_without_matcher(events: &[&str], command: &str) -> String {
+    let mut hooks = serde_json::Map::new();
+    for event in events {
+        hooks.insert(
+            (*event).to_owned(),
+            serde_json::json!([{
                 "hooks": [{
                     "type": "command",
                     "command": command,
