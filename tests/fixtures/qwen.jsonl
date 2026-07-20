@@ -1,0 +1,6 @@
+{"type":"system","subtype":"session_start","uuid":"qwen-uuid-1","session_id":"qwen-s1","model":"qwen-example","cwd":"/work/qwen","timestamp":"2026-07-20T00:00:00Z"}
+{"type":"message_start","session_id":"qwen-s1","turn_id":"qwen-t1","timestamp":"2026-07-20T00:00:01Z","message":{"role":"assistant"}}
+{"type":"content_block_delta","session_id":"qwen-s1","turn_id":"qwen-t1","timestamp":"2026-07-20T00:00:02Z","delta":{"type":"text_delta","text":"private qwen output"}}
+{"type":"assistant","session_id":"qwen-s1","turn_id":"qwen-t1","timestamp":"2026-07-20T00:00:03Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"qwen-call-1","name":"Bash","input":{"command":"secret"}}],"usage":{"input_tokens":80,"output_tokens":12}}}
+{"type":"tool_result","session_id":"qwen-s1","turn_id":"qwen-t1","tool_use_id":"qwen-call-1","is_error":false,"content":"private output","timestamp":"2026-07-20T00:00:04Z"}
+{"type":"result","subtype":"success","session_id":"qwen-s1","turn_id":"qwen-t1","is_error":false,"duration_ms":4000,"result":"private final answer","usage":{"input_tokens":80,"output_tokens":12},"timestamp":"2026-07-20T00:00:05Z"}

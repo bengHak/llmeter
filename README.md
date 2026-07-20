@@ -199,11 +199,14 @@ hook journal ──────┘                                      │
                                                           └─> JSON snapshot
 ```
 
-Cargo workspace는 세 crate로 분리됩니다.
+코드는 단일 Rust crate 안에서 책임별 모듈로 분리됩니다.
 
-- `llmeter-core`: 이벤트, 세션 상태 머신, TTFT/TPS/stall 계산
-- `llmeter-collectors`: 8개 도구 parser, 프로세스 탐색, JSONL tailer
-- `llmeter-app`: CLI, normalized journal, live runtime, Ratatui 대시보드
+- `src/model.rs`: 정규화 이벤트와 세션 snapshot 모델
+- `src/adapters/`: 8개 도구 parser
+- `src/discovery.rs`: 프로세스와 native session 탐색
+- `src/aggregate/`: TTFT/TPS/stall 상태 계산
+- `src/runtime.rs`: tailer, journal, 수집 루프
+- `src/tui.rs`: Ratatui 대시보드
 
 도구별 parser는 메트릭을 직접 계산하지 않습니다. 모든 parser는 `TelemetryEvent`만 만들고, 하나의 aggregator가 시간과 상태를 결정합니다.
 

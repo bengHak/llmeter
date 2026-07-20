@@ -1,0 +1,6 @@
+{"hook_event_name":"agentSpawn","session_id":"kiro-s1","cwd":"/work/kiro","timestamp":"2026-07-20T00:00:00Z"}
+{"jsonrpc":"2.0","id":2,"method":"session/prompt","params":{"sessionId":"kiro-s1","content":[{"type":"text","text":"private prompt"}]},"timestamp":"2026-07-20T00:00:01Z"}
+{"jsonrpc":"2.0","method":"session/notification","params":{"sessionId":"kiro-s1","update":{"sessionUpdate":"AgentMessageChunk","content":{"type":"text","text":"kiro delta"}}},"timestamp":"2026-07-20T00:00:02Z"}
+{"jsonrpc":"2.0","method":"session/notification","params":{"sessionId":"kiro-s1","update":{"sessionUpdate":"ToolCall","toolCallId":"kiro-call-1","title":"Bash","status":"in_progress","rawInput":{"command":"secret"}}},"timestamp":"2026-07-20T00:00:03Z"}
+{"jsonrpc":"2.0","method":"session/notification","params":{"sessionId":"kiro-s1","update":{"sessionUpdate":"ToolCallUpdate","toolCallId":"kiro-call-1","status":"completed","rawOutput":"private output"}},"timestamp":"2026-07-20T00:00:04Z"}
+{"jsonrpc":"2.0","method":"session/notification","params":{"sessionId":"kiro-s1","update":{"sessionUpdate":"TurnEnd","stopReason":"end_turn"}},"timestamp":"2026-07-20T00:00:05Z"}

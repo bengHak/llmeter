@@ -1,0 +1,7 @@
+{"hook_event_name":"SessionStart","session_id":"claude-s1","prompt_id":"prompt-1","transcript_path":"/home/user/.claude/projects/demo/transcript.jsonl","cwd":"/work/claude","timestamp":"2026-07-20T00:00:00Z"}
+{"hook_event_name":"UserPromptSubmit","session_id":"claude-s1","prompt_id":"prompt-1","prompt":"private prompt","timestamp":"2026-07-20T00:00:01Z"}
+{"hook_event_name":"PreToolUse","session_id":"claude-s1","prompt_id":"prompt-1","tool_use_id":"claude-call-1","tool_name":"Bash","tool_input":{"command":"secret"},"timestamp":"2026-07-20T00:00:02Z"}
+{"hook_event_name":"PostToolUse","session_id":"claude-s1","prompt_id":"prompt-1","tool_use_id":"claude-call-1","tool_name":"Bash","tool_response":"private output","timestamp":"2026-07-20T00:00:03Z"}
+{"hook_event_name":"PermissionRequest","session_id":"claude-s1","prompt_id":"prompt-1","tool_use_id":"claude-call-2","tool_name":"Write","timestamp":"2026-07-20T00:00:04Z"}
+{"hook_event_name":"Stop","session_id":"claude-s1","prompt_id":"prompt-1","last_assistant_message":"private answer","timestamp":"2026-07-20T00:00:05Z"}
+{"hook_event_name":"SessionEnd","session_id":"claude-s1","timestamp":"2026-07-20T00:00:06Z"}

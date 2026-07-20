@@ -1,0 +1,9 @@
+{"at_ms":1784505600000,"session_id":"demo-codex","source":"codex","confidence":"exact","kind":{"type":"session_discovered","agent":"codex","model":"gpt-codex","project":"~/work/demo","pid":4217}}
+{"at_ms":1784505601000,"session_id":"demo-codex","turn_id":"turn-1","source":"codex","confidence":"exact","kind":{"type":"turn_started"}}
+{"at_ms":1784505601000,"session_id":"demo-codex","turn_id":"turn-1","source":"codex","confidence":"exact","kind":{"type":"request_submitted"}}
+{"at_ms":1784505601420,"session_id":"demo-codex","turn_id":"turn-1","source":"codex","confidence":"exact","kind":{"type":"output_delta","tokens":8,"characters":28,"bytes":28}}
+{"at_ms":1784505601800,"session_id":"demo-codex","turn_id":"turn-1","source":"codex","confidence":"exact","kind":{"type":"tool_started","call_id":"tool-1","name":"shell"}}
+{"at_ms":1784505602700,"session_id":"demo-codex","turn_id":"turn-1","source":"codex","confidence":"exact","kind":{"type":"tool_finished","call_id":"tool-1","name":"shell","success":true}}
+{"at_ms":1784505603200,"session_id":"demo-codex","turn_id":"turn-1","source":"codex","confidence":"exact","kind":{"type":"output_delta","tokens":17,"characters":62,"bytes":62}}
+{"at_ms":1784505603500,"session_id":"demo-codex","turn_id":"turn-1","source":"codex","confidence":"exact","kind":{"type":"usage_reported","input_tokens":120,"output_tokens":25,"cached_input_tokens":20}}
+{"at_ms":1784505603600,"session_id":"demo-codex","turn_id":"turn-1","source":"codex","confidence":"exact","kind":{"type":"turn_finished","success":true}}

@@ -1,0 +1,10 @@
+pub mod adapters;
+pub mod aggregate;
+pub mod cli;
+pub mod discovery;
+pub mod journal;
+pub mod model;
+pub mod registry;
+pub mod runtime;
+pub mod setup;
+pub mod tui;

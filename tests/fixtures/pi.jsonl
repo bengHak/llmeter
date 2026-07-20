@@ -1,0 +1,6 @@
+{"type":"agent_start","sessionId":"pi-s1","timestamp":"2026-07-20T00:00:00Z"}
+{"type":"turn_start","sessionId":"pi-s1","turnId":"pi-t1","timestamp":"2026-07-20T00:00:01Z"}
+{"type":"message_update","sessionId":"pi-s1","turnId":"pi-t1","timestamp":"2026-07-20T00:00:02Z","assistantMessageEvent":{"type":"text_delta","delta":"hello world"}}
+{"type":"tool_execution_start","sessionId":"pi-s1","turnId":"pi-t1","timestamp":"2026-07-20T00:00:03Z","toolCallId":"call-pi-1","toolName":"bash","args":{"command":"private command"}}
+{"type":"tool_execution_end","sessionId":"pi-s1","turnId":"pi-t1","timestamp":"2026-07-20T00:00:04Z","toolCallId":"call-pi-1","toolName":"bash","result":{"content":"private output"},"isError":false}
+{"type":"turn_end","sessionId":"pi-s1","turnId":"pi-t1","timestamp":"2026-07-20T00:00:05Z"}

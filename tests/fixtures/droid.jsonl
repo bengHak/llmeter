@@ -1,0 +1,6 @@
+{"hook_event_name":"SessionStart","session_id":"droid-s1","cwd":"/work/droid","timestamp":"2026-07-20T00:00:00Z"}
+{"hook_event_name":"UserPromptSubmit","session_id":"droid-s1","prompt":"private prompt","timestamp":"2026-07-20T00:00:01Z"}
+{"type":"assistant_delta","session_id":"droid-s1","delta":"streamed answer","timestamp":"2026-07-20T00:00:02Z"}
+{"hook_event_name":"PreToolUse","session_id":"droid-s1","tool_use_id":"droid-call-1","tool_name":"Bash","tool_input":{"command":"secret"},"timestamp":"2026-07-20T00:00:03Z"}
+{"hook_event_name":"PostToolUse","session_id":"droid-s1","tool_use_id":"droid-call-1","tool_name":"Bash","tool_response":"private output","timestamp":"2026-07-20T00:00:04Z"}
+{"hook_event_name":"Stop","session_id":"droid-s1","timestamp":"2026-07-20T00:00:05Z"}

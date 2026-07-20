@@ -1,0 +1,6 @@
+{"type":"session.created","timestamp":"2026-07-20T00:00:00Z","properties":{"info":{"id":"opencode-s1","directory":"/work/opencode"}}}
+{"type":"message.updated","timestamp":"2026-07-20T00:00:01Z","properties":{"info":{"id":"message-1","sessionID":"opencode-s1","role":"assistant","modelID":"model-example"}}}
+{"type":"message.part.updated","timestamp":"2026-07-20T00:00:02Z","properties":{"part":{"id":"part-1","messageID":"message-1","sessionID":"opencode-s1","type":"text","text":"private opencode output"},"delta":"open delta"}}
+{"type":"tool.execute.before","timestamp":"2026-07-20T00:00:03Z","properties":{"sessionID":"opencode-s1","callID":"open-call-1","tool":"bash","args":{"command":"secret"}}}
+{"type":"tool.execute.after","timestamp":"2026-07-20T00:00:04Z","properties":{"sessionID":"opencode-s1","callID":"open-call-1","tool":"bash","output":"private output"}}
+{"type":"session.idle","timestamp":"2026-07-20T00:00:05Z","properties":{"sessionID":"opencode-s1"}}

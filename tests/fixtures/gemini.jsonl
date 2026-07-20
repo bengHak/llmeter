@@ -1,0 +1,6 @@
+{"hook_event_name":"SessionStart","session_id":"gemini-s1","cwd":"/work/gemini","timestamp":"2026-07-20T00:00:00Z"}
+{"hook_event_name":"BeforeAgent","session_id":"gemini-s1","prompt":"private prompt","timestamp":"2026-07-20T00:00:01Z"}
+{"hook_event_name":"AfterModel","session_id":"gemini-s1","timestamp":"2026-07-20T00:00:02Z","llm_response":{"model":"gemini-example","candidates":[{"content":{"parts":[{"text":"gemini output"}]}}],"usageMetadata":{"promptTokenCount":40,"candidatesTokenCount":3,"cachedContentTokenCount":10}}}
+{"hook_event_name":"BeforeTool","session_id":"gemini-s1","tool_name":"run_shell_command","tool_call_id":"gemini-call-1","tool_input":{"command":"secret"},"timestamp":"2026-07-20T00:00:03Z"}
+{"hook_event_name":"AfterTool","session_id":"gemini-s1","tool_name":"run_shell_command","tool_call_id":"gemini-call-1","tool_response":"private output","timestamp":"2026-07-20T00:00:04Z"}
+{"hook_event_name":"AfterAgent","session_id":"gemini-s1","prompt_response":"private final answer","timestamp":"2026-07-20T00:00:05Z"}
