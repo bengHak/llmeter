@@ -84,9 +84,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${USE_CROSS}" = "true" ]; then
-            cross build --release --target "${TARGET}"
+            cross build --release --locked --target "${TARGET}"
           else
-            cargo build --release --target "${TARGET}"
+            cargo build --release --locked --target "${TARGET}"
           fi
           test -x "target/${TARGET}/release/llmeter"
 
