@@ -61,6 +61,19 @@ pub fn correlate_process_sessions(mut snapshot: AppSnapshot) -> AppSnapshot {
     snapshot
 }
 
+pub fn retain_live_process_sessions(
+    mut snapshot: AppSnapshot,
+    active_processes: &HashSet<(ToolId, u32)>,
+) -> AppSnapshot {
+    snapshot.sessions.retain(|session| {
+        session
+            .pid
+            .is_some_and(|pid| active_processes.contains(&(session.tool, pid)))
+    });
+    recompute_summary(&mut snapshot);
+    snapshot
+}
+
 fn process_indices(sessions: &[SessionSnapshot]) -> Vec<usize> {
     sessions
         .iter()
@@ -263,5 +276,24 @@ mod tests {
         ]));
 
         assert_eq!(result.sessions.len(), 2);
+    }
+
+    #[test]
+    fn live_filter_keeps_only_sessions_backed_by_a_running_process() {
+        let active = HashSet::from([(ToolId::Codex, 12)]);
+        let result = retain_live_process_sessions(
+            snapshot(vec![
+                session(ToolId::Claude, "stale-native", None, SessionState::Stall),
+                session(ToolId::Codex, "live", Some(12), SessionState::Stream),
+                session(ToolId::Codex, "exited", Some(99), SessionState::Exited),
+            ]),
+            &active,
+        );
+
+        assert_eq!(result.sessions.len(), 1);
+        assert_eq!(result.sessions[0].session_id, "live");
+        assert_eq!(result.active_sessions, 1);
+        assert_eq!(result.generating_sessions, 1);
+        assert_eq!(result.total_tps, 10.0);
     }
 }

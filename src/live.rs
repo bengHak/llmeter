@@ -16,7 +16,7 @@ use crate::aggregate::Aggregator;
 use crate::discovery::{detect_processes, ProcessInfo};
 use crate::model::{AppSnapshot, Confidence, EventKind, TelemetryEvent, ToolId};
 
-use correlation::correlate_process_sessions;
+use correlation::{correlate_process_sessions, retain_live_process_sessions};
 use cursor::{JournalCursor, SourceCursor};
 use source_catalog::scan_session_sources;
 
@@ -199,7 +199,13 @@ impl LiveCollector {
             }
         }
 
-        Ok(correlate_process_sessions(self.aggregator.snapshot(now)))
+        let snapshot = correlate_process_sessions(self.aggregator.snapshot(now));
+        if self.config.scan_processes {
+            let active = self.processes.keys().copied().collect();
+            Ok(retain_live_process_sessions(snapshot, &active))
+        } else {
+            Ok(snapshot)
+        }
     }
 
     fn refresh_source_catalog(&mut self) {
