@@ -185,32 +185,32 @@ Grok의 프롬프트, 응답, 사고 내용과 도구 입출력 원문은 journa
 ## 5. CLI 명령
 
 ```text
-lmeter [watch]
+llmeter [watch]
 llmeter --once --json
-llmeter replay <FILE> [--tool <TOOL=] [--json]
+llmeter replay <FILE> [--tool <TOOL>] [--json]
 llmeter ingest --tool <TOOL> --input <FILE|-> [--output <JOURNAL>]
 llmeter hook --tool <TOOL> [--output <JOURNAL>]
 llmeter doctor [--json]
 llmeter setup <TOOL>
-mlmeter adapters [--json]
+llmeter adapters [--json]
 ```
 
-주욤 전역 옵션:
+주요 전역 옵션:
 
 ```text
 --source <TOOL:PATH>       여러 번 지정 가능
---journal <PATH>           정규화 journal 겼로
---no-auto-discover         프로세스와 기본 세션 루트 탐색 비활성왔
---refresh-ms <MS>          TUI 개신 주기, 기본 250ms
---process-scan-ms <MS>     프로세스과 세션 파일 재탐색 주기, 기본 2000ms
---stall-threshold-ms <MS>  stall 임계값, 기룴 2000ms
+--journal <PATH>           정규화 journal 경로
+--no-auto-discover         프로세스와 기본 세션 루트 탐색 비활성화
+--refresh-ms <MS>          TUI 갱신 주기, 기본 250ms
+--process-scan-ms <MS>     프로세스·세션 파일 재탐색 주기, 기본 2000ms
+--stall-threshold-ms <MS>  stall 임계값, 기본 2000ms
 ```
 
-TUI 사용 키:
+TUI 키:
 
 ```text
-j/k또는 ↑/↓  세션 선택
-p             일시 정지/재개
+j/k 또는 ↑/↓  세션 선택
+p              일시 정지/재개
 r              즉시 갱신
 q 또는 Esc     종료
 ```
@@ -252,7 +252,7 @@ hook journal ──────┘                                      │
 ## 8. 알려진 제한
 
 - 외부 CLI 바이너리가 설치된 실제 사용자 환경에 대한 live smoke test는 포함하지 않았습니다. parser는 공식 이벤트 표면을 바탕으로 한 fixture와 replay 테스트로 검증했습니다.
-- OpenCode SSE, Qwen daemon SSE, Gemini OTLP를 직접 수신하는 네트워크 서버는 아직 없습닄. 현재는 JSONL로 기록된 이벤트를 tail하거나 구조화 stdout을 `ingest`로 스트리밍합니다.
-- 프로세스 발견과 세션 파일의 완전한 상관관계는 아직 구현하지 않아 같은 작업이 process-only 행과 native-session 행으로 함께 보일 수 있습닄.
+- OpenCode SSE, Qwen daemon SSE, Gemini OTLP를 직접 수신하는 네트워크 서버는 아직 없습니다. 현재는 JSONL로 기록된 이벤트를 tail하거나 구조화 stdout을 `ingest`로 스트리밍합니다.
+- 프로세스 발견과 세션 파일의 완전한 상관관계는 아직 구현하지 않아 같은 작업이 process-only 행과 native-session 행으로 함께 보일 수 있습니다.
 - Codex, Claude 등 내부 session 파일 schema가 변경되면 해당 parser fixture와 mapping을 갱신해야 합니다.
 - 동적 플러그인 ABI, 원격 호스트, Kubernetes, 웹 대시보드는 Phase 1–2 범위 밖입니다.
