@@ -118,12 +118,6 @@ fn recompute_summary(snapshot: &mut AppSnapshot) {
         .filter(|session| session.rate_unit == RateUnit::TokensPerSecond)
         .filter_map(|session| session.current_tps.value)
         .sum();
-    snapshot.total_chars_per_second = snapshot
-        .sessions
-        .iter()
-        .filter(|session| session.rate_unit == RateUnit::CharactersPerSecond)
-        .filter_map(|session| session.current_tps.value)
-        .sum();
     snapshot.active_sessions = snapshot
         .sessions
         .iter()
@@ -202,7 +196,6 @@ mod tests {
             generated_at,
             sessions,
             total_tps: 0.0,
-            total_chars_per_second: 0.0,
             active_sessions: 0,
             generating_sessions: 0,
             stalled_sessions: 0,

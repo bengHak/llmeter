@@ -44,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/bengHak/llmeter/master/scripts/inst
 Pin a version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bengHak/llmeter/master/scripts/install.sh | LLMETER_VERSION=0.1.2 sh
+curl -fsSL https://raw.githubusercontent.com/bengHak/llmeter/master/scripts/install.sh | LLMETER_VERSION=0.1.3 sh
 ```
 
 Defaults and overrides:
@@ -120,7 +120,7 @@ Each metric shows its own confidence grade:
 | `~` | Estimated | Based on character volume, process signals, or indirect events |
 | `-` | Unknown | No usable data |
 
-Events without token counts are shown as `ch/s` or `B/s`, never disguised as `tok/s`.
+Rates are token-only (`tok/s`). Events without token counts still advance TTFT/stall timing, but do not invent a character throughput.
 
 ## 4. Per-tool wiring
 

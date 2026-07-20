@@ -278,7 +278,7 @@ fn mixed_stream_deltas_and_turn_usage_accumulate_without_double_counting() {
 }
 
 #[test]
-fn character_rates_are_labeled_and_never_mixed_into_total_token_rate() {
+fn character_only_deltas_do_not_produce_token_rates() {
     let t0 = at("2026-07-20T00:00:00Z");
     let mut aggregate = Aggregator::default();
 
@@ -294,10 +294,12 @@ fn character_rates_are_labeled_and_never_mixed_into_total_token_rate() {
 
     let snapshot = aggregate.snapshot(t0 + Duration::seconds(2));
     let session = &snapshot.sessions[0];
-    assert_eq!(session.rate_unit, RateUnit::CharactersPerSecond);
-    assert_eq!(session.current_tps.value, Some(40.0));
+    // Timing still advances (TTFT), but rates stay unknown without token counts.
+    assert_eq!(session.ttft_ms.value, Some(1_000.0));
+    assert_eq!(session.rate_unit, RateUnit::Unknown);
+    assert_eq!(session.current_tps.value, None);
+    assert_eq!(session.turn_average_tps.value, None);
     assert_eq!(snapshot.total_tps, 0.0);
-    assert_eq!(snapshot.total_chars_per_second, 40.0);
 }
 
 #[test]

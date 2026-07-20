@@ -201,9 +201,8 @@ fn render(frame: &mut Frame, app: &App) {
 
 fn render_summary(frame: &mut Frame, area: Rect, app: &App) {
     let summary = format!(
-        "TOKEN {:>7.1} tok/s  CHAR {:>7.1} ch/s  sessions {}  active {}  generating {}  stalls {}  errors {}",
+        "TOKEN {:>7.1} tok/s  sessions {}  active {}  generating {}  stalls {}  errors {}",
         app.snapshot.total_tps,
-        app.snapshot.total_chars_per_second,
         app.snapshot.sessions.len(),
         app.snapshot.active_sessions,
         app.snapshot.generating_sessions,
@@ -277,7 +276,7 @@ fn render_sessions(frame: &mut Frame, area: Rect, app: &App) {
 
     let (header, widths): (Row<'_>, Vec<Constraint>) = if compact_mode {
         (
-            Row::new(["ST", "TOOL", "MODEL", "NOW", "TTFT", "OUT"])
+            Row::new(["ST", "TOOL", "MODEL", "NOW(t/s)", "TTFT(ms)", "OUT(tok)"])
                 .style(Style::default().add_modifier(Modifier::BOLD)),
             vec![
                 Constraint::Length(8),
@@ -291,7 +290,15 @@ fn render_sessions(frame: &mut Frame, area: Rect, app: &App) {
     } else {
         (
             Row::new([
-                "ST", "TOOL", "MODEL", "PROJECT", "TTFT", "NOW", "AVG", "STALL", "OUT",
+                "ST",
+                "TOOL",
+                "MODEL",
+                "PROJECT",
+                "TTFT(ms)",
+                "NOW(t/s)",
+                "AVG(t/s)",
+                "STALL(s)",
+                "OUT(tok)",
             ])
             .style(Style::default().add_modifier(Modifier::BOLD)),
             vec![
@@ -302,7 +309,7 @@ fn render_sessions(frame: &mut Frame, area: Rect, app: &App) {
                 Constraint::Length(10),
                 Constraint::Length(10),
                 Constraint::Length(10),
-                Constraint::Length(8),
+                Constraint::Length(9),
                 Constraint::Length(9),
             ],
         )
@@ -486,8 +493,7 @@ fn session_state_rank(state: SessionState) -> u8 {
 fn rate_unit_rank(unit: RateUnit) -> u8 {
     match unit {
         RateUnit::TokensPerSecond => 0,
-        RateUnit::CharactersPerSecond => 1,
-        RateUnit::Unknown => 2,
+        RateUnit::Unknown => 1,
     }
 }
 

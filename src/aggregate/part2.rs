@@ -75,11 +75,9 @@ impl Aggregator {
                     turn.last_output_at = Some(event.occurred_at);
                 }
             }
-            EventKind::OutputDelta {
-                tokens, characters, ..
-            } => {
+            EventKind::OutputDelta { tokens, .. } => {
                 let turn = session.ensure_turn(&event);
-                turn.record_output(event.occurred_at, *tokens, *characters, event.confidence);
+                turn.record_output(event.occurred_at, *tokens, event.confidence);
             }
             EventKind::ToolStarted { call_id, .. } => {
                 let turn = session.ensure_turn(&event);
@@ -207,11 +205,6 @@ impl Aggregator {
             .filter(|session| session.rate_unit == RateUnit::TokensPerSecond)
             .filter_map(|session| session.current_tps.value)
             .sum();
-        let total_chars_per_second = snapshots
-            .iter()
-            .filter(|session| session.rate_unit == RateUnit::CharactersPerSecond)
-            .filter_map(|session| session.current_tps.value)
-            .sum();
         let active_sessions = snapshots
             .iter()
             .filter(|session| {
@@ -243,7 +236,6 @@ impl Aggregator {
             generated_at: now,
             sessions: snapshots,
             total_tps,
-            total_chars_per_second,
             active_sessions,
             generating_sessions,
             stalled_sessions,

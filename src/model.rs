@@ -243,7 +243,6 @@ pub enum SessionState {
 #[serde(rename_all = "snake_case")]
 pub enum RateUnit {
     TokensPerSecond,
-    CharactersPerSecond,
     #[default]
     Unknown,
 }
@@ -252,7 +251,6 @@ impl RateUnit {
     pub const fn label(self) -> &'static str {
         match self {
             Self::TokensPerSecond => "tok/s",
-            Self::CharactersPerSecond => "ch/s",
             Self::Unknown => "",
         }
     }
@@ -260,7 +258,6 @@ impl RateUnit {
     pub const fn compact_label(self) -> &'static str {
         match self {
             Self::TokensPerSecond => "t",
-            Self::CharactersPerSecond => "c",
             Self::Unknown => "",
         }
     }
@@ -345,8 +342,6 @@ pub struct AppSnapshot {
     pub generated_at: DateTime<Utc>,
     pub sessions: Vec<SessionSnapshot>,
     pub total_tps: f64,
-    #[serde(default)]
-    pub total_chars_per_second: f64,
     pub active_sessions: usize,
     pub generating_sessions: usize,
     pub stalled_sessions: usize,
@@ -359,7 +354,6 @@ impl AppSnapshot {
             generated_at,
             sessions: Vec::new(),
             total_tps: 0.0,
-            total_chars_per_second: 0.0,
             active_sessions: 0,
             generating_sessions: 0,
             stalled_sessions: 0,
