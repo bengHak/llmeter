@@ -40,6 +40,8 @@ cargo build --release
 ./target/release/llmeter
 ```
 
+설치 후 별도 셋업 없이 `llmeter`를 실행하면 지원되는 CLI 프로세스와 알려진 세션 저장소를 자동으로 탐색합니다. 최초에는 최근 기록을 bootstrap하고, 이후에는 각 파일에 새로 append된 부분만 증분 처리합니다. `llmeter setup <tool>`은 자동 탐색의 필수 단계가 아니라 정확한 hook·RPC·OTLP 이벤트를 추가하는 선택 기능입니다.
+
 실행 중인 프로세스와 알려진 세션 파일을 한 번만 조회해 JSON으로 출력합니다.
 
 ```bash
@@ -231,7 +233,8 @@ hook journal ──────┘                                      │
 - `src/adapters/`: 9개 도구 parser
 - `src/discovery.rs`: 프로세스와 native session 탐색
 - `src/aggregate/`: TTFT/TPS/stall 상태 계산
-- `src/runtime.rs`: tailer, journal, 수집 루프
+- `src/live.rs`: 상태형 소스 인덱스, 증분 tail, 프로세스 상관관계
+- `src/runtime.rs`: ingest, SSE, wrapper, replay 호환 구현
 - `src/tui.rs`: Ratatui 대시보드
 
 도구별 parser는 메트릭을 직접 계산하지 않습니다. 모든 parser는 `TelemetryEvent`만 만들고, 하나의 aggregator가 시간과 상태를 결정합니다.
@@ -253,6 +256,6 @@ hook journal ──────┘                                      │
 
 - 외부 CLI 바이너리가 설치된 실제 사용자 환경에 대한 live smoke test는 포함하지 않았습니다. parser는 공식 이벤트 표면을 바탕으로 한 fixture와 replay 테스트로 검증했습니다.
 - OpenCode SSE, Qwen daemon SSE, Gemini OTLP를 직접 수신하는 네트워크 서버는 아직 없습니다. 현재는 JSONL로 기록된 이벤트를 tail하거나 구조화 stdout을 `ingest`로 스트리밍합니다.
-- 프로세스 발견과 세션 파일의 완전한 상관관계는 아직 구현하지 않아 같은 작업이 process-only 행과 native-session 행으로 함께 보일 수 있습니다.
+- 프로세스와 native session은 동일 PID 또는 명확한 1:1 관계일 때만 병합합니다. 여러 후보가 있는 모호한 경우에는 잘못된 병합을 피하기 위해 별도 행으로 유지합니다.
 - Codex, Claude 등 내부 session 파일 schema가 변경되면 해당 parser fixture와 mapping을 갱신해야 합니다.
 - 동적 플러그인 ABI, 원격 호스트, Kubernetes, 웹 대시보드는 Phase 1–2 범위 밖입니다.

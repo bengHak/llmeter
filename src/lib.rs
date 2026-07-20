@@ -3,8 +3,10 @@ pub mod aggregate;
 pub mod cli;
 pub mod discovery;
 pub mod journal;
+pub mod live;
 pub mod model;
 pub mod registry;
+#[path = "runtime_live.rs"]
 pub mod runtime;
 pub mod setup;
 pub mod tui;
