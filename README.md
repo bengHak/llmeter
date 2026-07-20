@@ -44,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/bengHak/llmeter/master/scripts/inst
 Pin a version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bengHak/llmeter/master/scripts/install.sh | LLMETER_VERSION=0.1.0 sh
+curl -fsSL https://raw.githubusercontent.com/bengHak/llmeter/master/scripts/install.sh | LLMETER_VERSION=0.1.1 sh
 ```
 
 Defaults and overrides:
