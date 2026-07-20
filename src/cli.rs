@@ -198,15 +198,14 @@ fn resolve_data_dir(explicit: Option<PathBuf>) -> PathBuf {
 
 fn print_human_snapshot(snapshot: &AppSnapshot) {
     println!(
-        "llmeter: {} sessions, {} active, {:.1} tok/s, {:.1} ch/s",
+        "llmeter: {} sessions, {} active, {:.1} tok/s",
         snapshot.sessions.len(),
         snapshot.active_sessions,
         snapshot.total_tps,
-        snapshot.total_chars_per_second,
     );
     println!(
         "{:<8} {:<10} {:<24} {:>9} {:>9} {:>8}",
-        "STATE", "TOOL", "MODEL", "NOW", "TTFT", "OUT"
+        "STATE", "TOOL", "MODEL", "NOW(t/s)", "TTFT(ms)", "OUT(tok)"
     );
     for session in &snapshot.sessions {
         let now = session.current_tps.value.map_or_else(

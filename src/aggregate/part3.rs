@@ -27,55 +27,36 @@ fn recent_rate(
         .filter(|sample| sample.at >= lower_bound && sample.at <= now)
         .collect();
     if within_window.is_empty() {
-        let last = turn.samples.back()?;
         return Some((
-            MetricValue::new(0.0, turn.metric_confidence(last.unit)),
-            last.unit,
+            MetricValue::new(0.0, turn.token_output_confidence),
+            RateUnit::TokensPerSecond,
         ));
     }
 
-    let unit = if within_window
-        .iter()
-        .any(|sample| sample.unit == RateUnit::TokensPerSecond)
-    {
-        RateUnit::TokensPerSecond
-    } else {
-        RateUnit::CharactersPerSecond
-    };
-    let relevant: Vec<_> = within_window
-        .into_iter()
-        .filter(|sample| sample.unit == unit)
-        .collect();
-
-    let units: f64 = relevant.iter().map(|sample| sample.units).sum();
-    let confidence = relevant
+    let units: f64 = within_window.iter().map(|sample| sample.units).sum();
+    let confidence = within_window
         .iter()
         .map(|sample| sample.confidence)
         .reduce(Confidence::lower)
         .unwrap_or(Confidence::Unknown);
-    let start = relevant
+    let start = within_window
         .first()
         .map(|sample| sample.at)
         .unwrap_or(lower_bound)
         .max(lower_bound);
     let elapsed = non_negative_duration(now - start);
     let seconds = (elapsed.num_milliseconds().max(100) as f64) / 1_000.0;
-    Some((MetricValue::new(units / seconds, confidence), unit))
+    Some((
+        MetricValue::new(units / seconds, confidence),
+        RateUnit::TokensPerSecond,
+    ))
 }
 
 fn average_rate(turn: &TurnRuntime, now: DateTime<Utc>) -> Option<(MetricValue, RateUnit)> {
-    let (output_units, unit) = if turn.token_output_units > 0.0 {
-        (turn.token_output_units, RateUnit::TokensPerSecond)
-    } else if turn.character_output_units > 0.0 {
-        (turn.character_output_units, RateUnit::CharactersPerSecond)
-    } else {
+    if turn.token_output_units <= 0.0 {
         return None;
-    };
-    let first = turn
-        .samples
-        .iter()
-        .find(|sample| sample.unit == unit)
-        .map(|sample| sample.at)?;
+    }
+    let first = turn.samples.front().map(|sample| sample.at)?;
     let end = turn
         .finished_at
         .or(turn.last_output_at)
@@ -84,8 +65,11 @@ fn average_rate(turn: &TurnRuntime, now: DateTime<Utc>) -> Option<(MetricValue, 
     let elapsed = non_negative_duration(end - first);
     let seconds = (elapsed.num_milliseconds().max(100) as f64) / 1_000.0;
     Some((
-        MetricValue::new(output_units / seconds, turn.metric_confidence(unit)),
-        unit,
+        MetricValue::new(
+            turn.token_output_units / seconds,
+            turn.token_output_confidence,
+        ),
+        RateUnit::TokensPerSecond,
     ))
 }
 
@@ -196,7 +180,6 @@ fn state_rank(state: SessionState) -> u8 {
 fn rate_unit_rank(unit: RateUnit) -> u8 {
     match unit {
         RateUnit::TokensPerSecond => 0,
-        RateUnit::CharactersPerSecond => 1,
-        RateUnit::Unknown => 2,
+        RateUnit::Unknown => 1,
     }
 }
