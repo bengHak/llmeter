@@ -321,7 +321,7 @@ const TOOLS: &[ToolDescriptor] = &[
         display_name: "Grok Build",
         executables: &["grok", "xai-grok-pager", "xai-grok-shell"],
         process_markers: &["xai-grok-pager", "xai-grok-shell", "grok-build"],
-        session_roots: &["~/.grok/sessions"],
+        session_roots: &["~/.grok/sessions", "~/.grok/logs"],
         transports: GROK_BUILD_TRANSPORTS,
         capabilities: GROK_BUILD_CAPABILITIES,
     },

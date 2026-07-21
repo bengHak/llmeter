@@ -117,7 +117,7 @@ pub fn matches_session_source(tool: ToolId, path: &Path) -> bool {
         ToolId::Codex => {
             is_jsonl && file_name.starts_with("rollout-")
         }
-        ToolId::GrokBuild => file_name == "updates.jsonl",
+        ToolId::GrokBuild => matches!(file_name.as_str(), "updates.jsonl" | "unified.jsonl"),
         ToolId::Droid => {
             is_jsonl && contains_any(&file_name, &["session", "event", "stream"])
         }
@@ -150,10 +150,12 @@ mod tests {
 
         let codex = home.join(".codex/sessions/2026/07/20");
         let grok = home.join(".grok/sessions/project/session-1");
+        let grok_logs = home.join(".grok/logs");
         let claude = home.join(".claude/projects/project");
         let gemini = home.join(".gemini");
         fs::create_dir_all(&codex).unwrap();
         fs::create_dir_all(&grok).unwrap();
+        fs::create_dir_all(&grok_logs).unwrap();
         fs::create_dir_all(&claude).unwrap();
         fs::create_dir_all(&gemini).unwrap();
 
@@ -162,6 +164,8 @@ mod tests {
         fs::write(codex.join("random.jsonl"), "{}\n").unwrap();
         fs::write(grok.join("updates.jsonl"), "{}\n").unwrap();
         fs::write(grok.join("feedback.jsonl"), "{}\n").unwrap();
+        fs::write(grok_logs.join("unified.jsonl"), "{}\n").unwrap();
+        fs::write(grok_logs.join("random.jsonl"), "{}\n").unwrap();
         fs::write(claude.join("conversation.jsonl"), "{}\n").unwrap();
         fs::write(gemini.join("settings.json"), "{}").unwrap();
         fs::write(gemini.join("telemetry-events.jsonl"), "{}\n").unwrap();
@@ -174,11 +178,13 @@ mod tests {
 
         assert!(paths.contains(&PathBuf::from(".codex/sessions/2026/07/20/rollout-a.jsonl")));
         assert!(paths.contains(&PathBuf::from(".grok/sessions/project/session-1/updates.jsonl")));
+        assert!(paths.contains(&PathBuf::from(".grok/logs/unified.jsonl")));
         assert!(paths.contains(&PathBuf::from(".claude/projects/project/conversation.jsonl")));
         assert!(paths.contains(&PathBuf::from(".gemini/telemetry-events.jsonl")));
         assert!(!paths.iter().any(|path| path.ends_with("config.json")));
         assert!(!paths.iter().any(|path| path.ends_with("random.jsonl")));
         assert!(!paths.iter().any(|path| path.ends_with("feedback.jsonl")));
+        assert!(!paths.contains(&PathBuf::from(".grok/logs/random.jsonl")));
         assert!(!paths.iter().any(|path| path.ends_with("settings.json")));
     }
 
