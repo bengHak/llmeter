@@ -429,4 +429,27 @@ mod tests {
             .iter()
             .any(|event| matches!(&event.kind, EventKind::TurnFinished { .. })));
     }
+
+    #[tokio::test]
+    async fn codex_rollout_records_share_the_session_meta_id() {
+        let temp = tempdir().unwrap();
+        let session = "019f8712-e09f-7583-a68a-e0771c9a943f";
+        let path = temp
+            .path()
+            .join(format!("rollout-2026-07-22T08-46-29-{session}.jsonl"));
+        std::fs::write(
+            &path,
+            format!(
+                "{{\"timestamp\":\"2026-07-21T23:46:29Z\",\"type\":\"session_meta\",\"payload\":{{\"id\":\"{session}\"}}}}\n{{\"timestamp\":\"2026-07-21T23:46:30Z\",\"type\":\"event_msg\",\"payload\":{{\"type\":\"task_started\"}}}}\n{{\"timestamp\":\"2026-07-21T23:46:31Z\",\"type\":\"event_msg\",\"payload\":{{\"type\":\"token_count\",\"info\":{{\"total_token_usage\":{{\"input_tokens\":12,\"output_tokens\":3}}}}}}}}\n"
+            ),
+        )
+        .unwrap();
+        let mut cursor = SourceCursor::new(ToolId::Codex, &path, 4096);
+        let at = Utc.timestamp_millis_opt(1_784_677_991_000).unwrap();
+
+        let events = cursor.poll(&at).await.unwrap().events;
+
+        assert!(!events.is_empty());
+        assert!(events.iter().all(|event| event.session_id == session));
+    }
 }

@@ -11,6 +11,7 @@ use crate::model::{Confidence, EventKind, TelemetryEvent, ToolId};
 #[derive(Default)]
 pub struct CodexAdapter {
     state: ParserState,
+    session_id: Option<String>,
 }
 
 impl Adapter for CodexAdapter {
@@ -28,7 +29,10 @@ impl Adapter for CodexAdapter {
                 first_string_at(value, &[&["payload", "id"], &["payload", "session_id"]])
             {
                 session = native_id.to_owned();
+                self.session_id = Some(session.clone());
             }
+        } else if session == context.fallback_session_id {
+            session = self.session_id.clone().unwrap_or(session);
         }
 
         match top_kind {
