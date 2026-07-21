@@ -204,7 +204,7 @@ impl Aggregator {
             .iter()
             .filter(|session| session.rate_unit == RateUnit::TokensPerSecond)
             .filter_map(|session| session.current_tps.value)
-            .sum();
+            .fold(0.0_f64, |total, value| total + value);
         let active_sessions = snapshots
             .iter()
             .filter(|session| {

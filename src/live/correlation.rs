@@ -143,7 +143,7 @@ fn recompute_summary(snapshot: &mut AppSnapshot) {
         .iter()
         .filter(|session| session.rate_unit == RateUnit::TokensPerSecond)
         .filter_map(|session| session.current_tps.value)
-        .sum();
+        .fold(0.0_f64, |total, value| total + value);
     snapshot.active_sessions = snapshot
         .sessions
         .iter()
@@ -230,6 +230,14 @@ mod tests {
     }
 
     #[test]
+    fn empty_live_snapshot_uses_positive_zero_throughput() {
+        let result = correlate_process_sessions(snapshot(Vec::new()));
+
+        assert_eq!(result.total_tps, 0.0);
+        assert!(result.total_tps.is_sign_positive());
+    }
+
+    #[test]
     fn exact_pid_match_merges_process_metadata_into_native_session() {
         let result = correlate_process_sessions(snapshot(vec![
             session(ToolId::Codex, "process-123", Some(123), SessionState::Unknown),
@@ -258,19 +266,11 @@ mod tests {
     #[test]
     fn out_of_tolerance_processes_and_sessions_remain_separate() {
         let native_started = Utc.timestamp_millis_opt(1_784_505_600_000).unwrap();
-        let mut first_process = session(
-            ToolId::Claude,
-            "process-1",
-            Some(1),
-            SessionState::Unknown,
-        );
+        let mut first_process =
+            session(ToolId::Claude, "process-1", Some(1), SessionState::Unknown);
         first_process.started_at = native_started - chrono::Duration::minutes(2);
-        let mut second_process = session(
-            ToolId::Claude,
-            "process-2",
-            Some(2),
-            SessionState::Unknown,
-        );
+        let mut second_process =
+            session(ToolId::Claude, "process-2", Some(2), SessionState::Unknown);
         second_process.started_at = native_started - chrono::Duration::minutes(3);
         let result = correlate_process_sessions(snapshot(vec![
             first_process,
@@ -315,12 +315,7 @@ mod tests {
     #[test]
     fn start_time_match_selects_current_native_and_live_filter_removes_history() {
         let process_started = Utc.timestamp_opt(1_784_639_940, 0).unwrap();
-        let mut process = session(
-            ToolId::GrokBuild,
-            "process-7",
-            Some(7),
-            SessionState::New,
-        );
+        let mut process = session(ToolId::GrokBuild, "process-7", Some(7), SessionState::New);
         process.started_at = process_started;
         let mut current = session(
             ToolId::GrokBuild,
@@ -338,10 +333,8 @@ mod tests {
         historical.last_seen_at = process_started + chrono::Duration::minutes(10);
 
         let correlated = correlate_process_sessions(snapshot(vec![process, historical, current]));
-        let filtered = retain_live_process_sessions(
-            correlated,
-            &HashSet::from([(ToolId::GrokBuild, 7)]),
-        );
+        let filtered =
+            retain_live_process_sessions(correlated, &HashSet::from([(ToolId::GrokBuild, 7)]));
 
         assert_eq!(filtered.sessions.len(), 1);
         assert_eq!(
@@ -355,19 +348,9 @@ mod tests {
     fn start_time_match_claims_each_process_and_native_once() {
         let first_at = Utc.timestamp_opt(1_784_636_520, 0).unwrap();
         let second_at = Utc.timestamp_opt(1_784_640_410, 0).unwrap();
-        let mut first_process = session(
-            ToolId::Codex,
-            "process-1",
-            Some(1),
-            SessionState::New,
-        );
+        let mut first_process = session(ToolId::Codex, "process-1", Some(1), SessionState::New);
         first_process.started_at = first_at;
-        let mut second_process = session(
-            ToolId::Codex,
-            "process-2",
-            Some(2),
-            SessionState::New,
-        );
+        let mut second_process = session(ToolId::Codex, "process-2", Some(2), SessionState::New);
         second_process.started_at = second_at;
         let first_native = session(
             ToolId::Codex,

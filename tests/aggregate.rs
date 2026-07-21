@@ -14,6 +14,14 @@ fn event(time: DateTime<Utc>, kind: EventKind) -> TelemetryEvent {
 }
 
 #[test]
+fn empty_snapshot_uses_positive_zero_throughput() {
+    let snapshot = Aggregator::default().snapshot(at("2026-07-20T00:00:00Z"));
+
+    assert_eq!(snapshot.total_tps, 0.0);
+    assert!(snapshot.total_tps.is_sign_positive());
+}
+
+#[test]
 fn calculates_ttft_recent_rate_and_turn_average() {
     let t0 = at("2026-07-20T00:00:00Z");
     let mut aggregate = Aggregator::new(AggregatorConfig::default());

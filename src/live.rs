@@ -492,8 +492,10 @@ mod tests {
     #[test]
     fn process_reconciliation_treats_reused_pid_as_a_new_session() {
         let temp = tempfile::tempdir().unwrap();
-        let mut config = LiveCollectorConfig::default();
-        config.scan_processes = true;
+        let config = LiveCollectorConfig {
+            scan_processes: true,
+            ..LiveCollectorConfig::default()
+        };
         let mut collector = LiveCollector::with_config(temp.path(), config);
         let first_at = Utc.timestamp_millis_opt(1_784_505_600_000).unwrap();
         let second_at = first_at + chrono::Duration::seconds(20);
@@ -549,8 +551,10 @@ mod tests {
     #[test]
     fn process_reconciliation_emits_discovery_heartbeat_and_exit_once() {
         let temp = tempfile::tempdir().unwrap();
-        let mut config = LiveCollectorConfig::default();
-        config.scan_processes = true;
+        let config = LiveCollectorConfig {
+            scan_processes: true,
+            ..LiveCollectorConfig::default()
+        };
         let mut collector = LiveCollector::with_config(temp.path(), config);
         let now = Utc.timestamp_millis_opt(1_784_505_600_000).unwrap();
         let process = ProcessInfo {
@@ -574,10 +578,7 @@ mod tests {
             .iter()
             .find(|event| matches!(&event.kind, EventKind::SessionDiscovered { .. }))
             .unwrap();
-        assert_eq!(
-            discovered.occurred_at,
-            now - chrono::Duration::seconds(10)
-        );
+        assert_eq!(discovered.occurred_at, now - chrono::Duration::seconds(10));
         assert_eq!(discovered.observed_at, now);
 
         let mut second = Vec::new();
