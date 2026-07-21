@@ -113,6 +113,7 @@ pub fn event(
 pub fn source_timestamp(value: &Value) -> Option<DateTime<Utc>> {
     for path in [
         &["timestamp"][..],
+        &["ts"][..],
         &["time"][..],
         &["created_at"][..],
         &["createdAt"][..],

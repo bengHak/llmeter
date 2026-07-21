@@ -6,6 +6,12 @@ use chrono::{DateTime, TimeZone, Utc};
 use llmeter::adapters::{adapter_for, AdapterContext};
 use llmeter::model::{EventKind, ToolId};
 
+fn at(value: &str) -> DateTime<Utc> {
+    DateTime::parse_from_rfc3339(value)
+        .unwrap()
+        .with_timezone(&Utc)
+}
+
 fn parse_fixture() -> Vec<llmeter::model::TelemetryEvent> {
     let file = File::open("tests/fixtures/grok_build.jsonl").unwrap();
     let mut adapter = adapter_for(ToolId::GrokBuild);
@@ -262,4 +268,84 @@ fn grok_build_single_json_result_uses_wrapper_session_and_reports_usage() {
     assert!(!serde_json::to_string(&events)
         .unwrap()
         .contains("private single json answer"));
+}
+
+#[test]
+fn grok_unified_metrics_fold_child_inference_into_the_pid_root() {
+    let mut adapter = adapter_for(ToolId::GrokBuild);
+    let observed_at = Utc.timestamp_opt(1_784_505_900, 0).unwrap();
+    let records = [
+        serde_json::json!({
+            "ts": "2026-07-21T14:30:56.958Z",
+            "pid": 93524,
+            "sid": "root-session",
+            "src": "shell",
+            "msg": "session created",
+            "ctx": {"cwd": "/work/AquaTick"}
+        }),
+        serde_json::json!({
+            "ts": "2026-07-21T14:31:09.280Z",
+            "pid": 93524,
+            "sid": "child-session",
+            "src": "shell",
+            "msg": "shell.turn.inference_done",
+            "ctx": {
+                "tokens_per_sec": 60.0,
+                "completion_tokens": 12,
+                "prompt_tokens": 100,
+                "cached_prompt_tokens": 40,
+                "reasoning_tokens": 4
+            }
+        }),
+        serde_json::json!({
+            "ts": "2026-07-21T14:31:15.782Z",
+            "pid": 93524,
+            "sid": "root-session",
+            "src": "shell",
+            "msg": "shell.turn.inference_done",
+            "ctx": {
+                "tokens_per_sec": 100.0,
+                "completion_tokens": 20,
+                "prompt_tokens": 180,
+                "cached_prompt_tokens": 60,
+                "reasoning_tokens": 6
+            }
+        }),
+    ];
+    let events = records
+        .iter()
+        .flat_map(|record| {
+            adapter.parse_record(record, &AdapterContext::new("unified", observed_at))
+        })
+        .collect::<Vec<_>>();
+
+    assert!(events
+        .iter()
+        .all(|event| event.session_id == "root-session"));
+    assert!(events.iter().any(|event| matches!(
+        &event.kind,
+        EventKind::Metadata { cwd: Some(cwd), .. } if cwd == "/work/AquaTick"
+    )));
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| matches!(event.kind, EventKind::RateReported { .. }))
+            .count(),
+        2
+    );
+    assert!(events.iter().any(|event| matches!(
+        event.kind,
+        EventKind::Usage {
+            input_tokens: Some(280),
+            output_tokens: Some(32),
+            cached_input_tokens: Some(100),
+            reasoning_tokens: Some(10),
+            cumulative: true,
+            ..
+        }
+    )));
+    assert_eq!(
+        events.last().unwrap().occurred_at,
+        at("2026-07-21T14:31:15.782Z")
+    );
 }
