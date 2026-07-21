@@ -22,7 +22,7 @@ pub fn parse_ps_line(line: &str) -> Option<ProcessInfo> {
     let mut fields = line.split_whitespace();
     let pid = fields.next()?.parse().ok()?;
     let parent_pid = fields.next().and_then(|value| value.parse().ok());
-    let elapsed_secs = fields.next().and_then(|value| value.parse().ok());
+    let elapsed_secs = fields.next().and_then(parse_elapsed_secs);
     let command = fields.collect::<Vec<_>>().join(" ");
     if command.is_empty() {
         return None;
@@ -38,6 +38,34 @@ pub fn parse_ps_line(line: &str) -> Option<ProcessInfo> {
         command,
         tool,
     })
+}
+
+fn parse_elapsed_secs(value: &str) -> Option<u64> {
+    if let Ok(seconds) = value.parse() {
+        return Some(seconds);
+    }
+    let (days, clock) = if let Some((days, clock)) = value.split_once('-') {
+        (days.parse::<u64>().ok()?, clock)
+    } else {
+        (0_u64, value)
+    };
+    let parts = clock
+        .split(':')
+        .map(str::parse)
+        .collect::<Result<Vec<u64>, _>>()
+        .ok()?;
+    let (hours, minutes, seconds) = match parts.as_slice() {
+        [minutes, seconds] => (0, *minutes, *seconds),
+        [hours, minutes, seconds] => (*hours, *minutes, *seconds),
+        _ => return None,
+    };
+    if minutes >= 60 || seconds >= 60 {
+        return None;
+    }
+    days.checked_mul(86_400)?
+        .checked_add(hours.checked_mul(3_600)?)?
+        .checked_add(minutes.checked_mul(60)?)?
+        .checked_add(seconds)
 }
 
 pub fn detect_processes() -> io::Result<Vec<ProcessInfo>> {

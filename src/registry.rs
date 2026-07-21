@@ -50,7 +50,7 @@ impl ToolDescriptor {
                     .map_or_else(|| PathBuf::from(root), |suffix| home.join(suffix))
             })
             .collect::<Vec<_>>();
-        if self.id == ToolId::Codex {
+        if self.id == ToolId::Codex && dirs::home_dir().as_deref() == Some(home) {
             for key in ["CODEX_HOME", "ORCA_CODEX_HOME"] {
                 if let Some(value) = std::env::var_os(key) {
                     let root = PathBuf::from(value).join("sessions");

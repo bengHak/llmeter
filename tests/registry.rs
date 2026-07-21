@@ -88,7 +88,7 @@ fn codex_home_env_adds_session_root() {
         .iter()
         .find(|tool| tool.id == ToolId::Codex)
         .unwrap();
-    let roots = codex.resolve_session_roots(Path::new("/home/example"));
+    let roots = codex.resolve_session_roots(&dirs::home_dir().unwrap());
     match previous {
         Some(value) => std::env::set_var("CODEX_HOME", value),
         None => std::env::remove_var("CODEX_HOME"),
@@ -122,6 +122,15 @@ fn parses_ps_rows_without_losing_command_arguments() {
     assert_eq!(process.parent_pid, Some(120));
     assert_eq!(process.elapsed_secs, Some(91));
     assert_eq!(process.command, "codex --model gpt-example --search");
+}
+
+#[test]
+fn parses_macos_ps_elapsed_time() {
+    let process = parse_ps_line(" 4242 120 01:02:03 codex").unwrap();
+    let multi_day = parse_ps_line(" 4243 120 2-01:02:03 grok").unwrap();
+
+    assert_eq!(process.elapsed_secs, Some(3_723));
+    assert_eq!(multi_day.elapsed_secs, Some(176_523));
 }
 
 #[test]
