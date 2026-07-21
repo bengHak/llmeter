@@ -284,7 +284,13 @@ impl LiveCollector {
                     output.push(process_ended(tool, &known.session_id, now));
                     let started_epoch_secs = process_started_epoch_secs(&process, now);
                     let session_id = process_session_id(process.pid, started_epoch_secs);
-                    output.push(process_discovered(tool, &session_id, process.pid, now));
+                    output.push(process_discovered(
+                        tool,
+                        &session_id,
+                        process.pid,
+                        started_epoch_secs,
+                        now,
+                    ));
                     self.processes.insert(
                         key,
                         KnownProcess {
@@ -297,7 +303,13 @@ impl LiveCollector {
                 None => {
                     let started_epoch_secs = process_started_epoch_secs(&process, now);
                     let session_id = process_session_id(process.pid, started_epoch_secs);
-                    output.push(process_discovered(tool, &session_id, process.pid, now));
+                    output.push(process_discovered(
+                        tool,
+                        &session_id,
+                        process.pid,
+                        started_epoch_secs,
+                        now,
+                    ));
                     self.processes.insert(
                         key,
                         KnownProcess {
@@ -374,12 +386,14 @@ fn process_discovered(
     tool: ToolId,
     session_id: &str,
     pid: u32,
+    started_epoch_secs: i64,
     now: &DateTime<Utc>,
 ) -> TelemetryEvent {
+    let started_at = DateTime::from_timestamp(started_epoch_secs, 0).unwrap_or(*now);
     TelemetryEvent::new(
         tool,
         session_id,
-        *now,
+        started_at,
         Confidence::Derived,
         EventKind::SessionDiscovered {
             pid: Some(pid),
@@ -387,6 +401,7 @@ fn process_discovered(
             model: None,
         },
     )
+    .with_observed_at(*now)
 }
 
 fn process_heartbeat(tool: ToolId, session_id: &str, now: &DateTime<Utc>) -> TelemetryEvent {
@@ -555,6 +570,15 @@ mod tests {
                 .count(),
             1
         );
+        let discovered = first
+            .iter()
+            .find(|event| matches!(&event.kind, EventKind::SessionDiscovered { .. }))
+            .unwrap();
+        assert_eq!(
+            discovered.occurred_at,
+            now - chrono::Duration::seconds(10)
+        );
+        assert_eq!(discovered.observed_at, now);
 
         let mut second = Vec::new();
         collector.reconcile_processes(vec![process], &now, &mut second);
