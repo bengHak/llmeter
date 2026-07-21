@@ -66,6 +66,54 @@ fn session_roots_expand_against_an_explicit_home() {
 }
 
 #[test]
+fn codex_session_roots_include_orca_runtime_home() {
+    let codex = all_tools()
+        .iter()
+        .find(|tool| tool.id == ToolId::Codex)
+        .unwrap();
+    let roots = codex.resolve_session_roots(Path::new("/home/example"));
+
+    assert!(roots.iter().any(|path| {
+        path == Path::new(
+            "/home/example/Library/Application Support/orca/codex-runtime-home/home/sessions",
+        )
+    }));
+}
+
+#[test]
+fn codex_home_env_adds_session_root() {
+    let previous = std::env::var_os("CODEX_HOME");
+    std::env::set_var("CODEX_HOME", "/tmp/codex-test-home");
+    let codex = all_tools()
+        .iter()
+        .find(|tool| tool.id == ToolId::Codex)
+        .unwrap();
+    let roots = codex.resolve_session_roots(Path::new("/home/example"));
+    match previous {
+        Some(value) => std::env::set_var("CODEX_HOME", value),
+        None => std::env::remove_var("CODEX_HOME"),
+    }
+
+    assert!(roots
+        .iter()
+        .any(|path| path == Path::new("/tmp/codex-test-home/sessions")));
+}
+
+#[test]
+fn codex_app_server_is_not_a_user_session() {
+    assert_eq!(
+        parse_ps_line(" 3421 1224 91 codex app-server")
+            .unwrap()
+            .tool,
+        None,
+    );
+    assert_eq!(
+        parse_ps_line(" 41526 54717 12 codex --yolo").unwrap().tool,
+        Some(ToolId::Codex),
+    );
+}
+
+#[test]
 fn parses_ps_rows_without_losing_command_arguments() {
     let row = " 4242  120  91 codex --model gpt-example --search";
     let process = parse_ps_line(row).expect("process row");

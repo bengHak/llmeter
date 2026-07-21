@@ -42,18 +42,30 @@ pub struct ToolDescriptor {
 
 impl ToolDescriptor {
     pub fn resolve_session_roots(&self, home: &Path) -> Vec<PathBuf> {
-        self.session_roots
+        let mut roots = self
+            .session_roots
             .iter()
             .map(|root| {
                 root.strip_prefix("~/")
                     .map_or_else(|| PathBuf::from(root), |suffix| home.join(suffix))
             })
-            .collect()
+            .collect::<Vec<_>>();
+        if self.id == ToolId::Codex {
+            for key in ["CODEX_HOME", "ORCA_CODEX_HOME"] {
+                if let Some(value) = std::env::var_os(key) {
+                    let root = PathBuf::from(value).join("sessions");
+                    if !roots.contains(&root) {
+                        roots.push(root);
+                    }
+                }
+            }
+        }
+        roots
     }
 
     pub fn matches_command(&self, command: &str) -> bool {
         let normalized = command.to_ascii_lowercase();
-        self.executables.iter().any(|executable| {
+        let matched = self.executables.iter().any(|executable| {
             command_tokens(&normalized).any(|token| {
                 Path::new(token)
                     .file_name()
@@ -63,8 +75,22 @@ impl ToolDescriptor {
         }) || self
             .process_markers
             .iter()
-            .any(|marker| normalized.contains(marker))
+            .any(|marker| normalized.contains(marker));
+        matched
+            && !(self.id == ToolId::Codex
+                && command_has_subcommand(&normalized, "codex", "app-server"))
     }
+}
+
+fn command_has_subcommand(command: &str, executable: &str, subcommand: &str) -> bool {
+    let tokens = command_tokens(command).collect::<Vec<_>>();
+    tokens.windows(2).any(|window| {
+        Path::new(window[0])
+            .file_name()
+            .and_then(|name| name.to_str())
+            == Some(executable)
+            && window[1] == subcommand
+    })
 }
 
 fn command_tokens(command: &str) -> impl Iterator<Item = &str> {
@@ -256,7 +282,10 @@ const TOOLS: &[ToolDescriptor] = &[
         display_name: "Codex CLI",
         executables: &["codex"],
         process_markers: &["@openai/codex", "codex-cli"],
-        session_roots: &["~/.codex/sessions"],
+        session_roots: &[
+            "~/.codex/sessions",
+            "~/Library/Application Support/orca/codex-runtime-home/home/sessions",
+        ],
         transports: CODEX_TRANSPORTS,
         capabilities: CODEX_CAPABILITIES,
     },
