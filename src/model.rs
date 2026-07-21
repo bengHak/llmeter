@@ -176,6 +176,10 @@ pub enum EventKind {
         characters: u64,
         bytes: u64,
     },
+    RateReported {
+        output_tokens: u64,
+        tokens_per_second: f64,
+    },
     ToolStarted {
         call_id: String,
         name: String,

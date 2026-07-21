@@ -32,6 +32,14 @@ fn recent_rate(
             RateUnit::TokensPerSecond,
         ));
     }
+    if let Some(sample) = within_window.last() {
+        if let Some(rate) = sample.reported_tps {
+            return Some((
+                MetricValue::new(rate, sample.confidence),
+                RateUnit::TokensPerSecond,
+            ));
+        }
+    }
 
     let units: f64 = within_window.iter().map(|sample| sample.units).sum();
     let confidence = within_window
@@ -55,6 +63,27 @@ fn recent_rate(
 fn average_rate(turn: &TurnRuntime, now: DateTime<Utc>) -> Option<(MetricValue, RateUnit)> {
     if turn.token_output_units <= 0.0 {
         return None;
+    }
+    if !turn.samples.is_empty()
+        && turn
+            .samples
+            .iter()
+            .all(|sample| sample.reported_tps.is_some())
+    {
+        let seconds: f64 = turn
+            .samples
+            .iter()
+            .map(|sample| sample.units / sample.reported_tps.unwrap_or_default())
+            .sum();
+        if seconds > 0.0 {
+            return Some((
+                MetricValue::new(
+                    turn.token_output_units / seconds,
+                    turn.token_output_confidence,
+                ),
+                RateUnit::TokensPerSecond,
+            ));
+        }
     }
     let first = turn.samples.front().map(|sample| sample.at)?;
     let end = turn

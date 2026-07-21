@@ -35,6 +35,7 @@ struct RateSample {
     at: DateTime<Utc>,
     units: f64,
     confidence: Confidence,
+    reported_tps: Option<f64>,
 }
 
 #[derive(Clone, Debug)]
@@ -126,10 +127,24 @@ impl TurnRuntime {
             at,
             units,
             confidence,
+            reported_tps: None,
         });
         self.token_output_units += units;
         self.token_output_confidence =
             lower_known_confidence(self.token_output_confidence, confidence);
+    }
+
+    fn record_reported_rate(
+        &mut self,
+        at: DateTime<Utc>,
+        output_tokens: u64,
+        tokens_per_second: f64,
+        confidence: Confidence,
+    ) {
+        self.record_output(at, Some(output_tokens), confidence);
+        if let Some(sample) = self.samples.back_mut() {
+            sample.reported_tps = Some(tokens_per_second);
+        }
     }
 
     fn finish_tool(&mut self, call_id: &str, at: DateTime<Utc>) {

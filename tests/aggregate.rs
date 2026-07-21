@@ -56,6 +56,37 @@ fn calculates_ttft_recent_rate_and_turn_average() {
 }
 
 #[test]
+fn reported_rates_use_latest_exact_value_and_token_weighted_average() {
+    let t0 = at("2026-07-20T00:00:00Z");
+    let mut aggregate = Aggregator::default();
+    aggregate.apply(event(t0, EventKind::TurnStarted));
+    aggregate.apply(event(
+        t0 + Duration::seconds(1),
+        EventKind::RateReported {
+            output_tokens: 20,
+            tokens_per_second: 10.0,
+        },
+    ));
+    aggregate.apply(event(
+        t0 + Duration::seconds(2),
+        EventKind::RateReported {
+            output_tokens: 30,
+            tokens_per_second: 30.0,
+        },
+    ));
+
+    let current = aggregate.snapshot(t0 + Duration::seconds(2));
+    let session = &current.sessions[0];
+    assert_eq!(session.current_tps.value, Some(30.0));
+    assert!((session.turn_average_tps.value.unwrap() - (50.0 / 3.0)).abs() < 0.001);
+    assert_eq!(session.current_tps.confidence, Confidence::Exact);
+    assert_eq!(session.output_tokens, 50);
+
+    let stale = aggregate.snapshot(t0 + Duration::seconds(5));
+    assert_eq!(stale.sessions[0].current_tps.value, Some(0.0));
+}
+
+#[test]
 fn tool_state_precedes_stall_and_stall_resumes_after_tool_finishes() {
     let t0 = at("2026-07-20T00:00:00Z");
     let mut aggregate = Aggregator::new(AggregatorConfig {

@@ -79,6 +79,20 @@ impl Aggregator {
                 let turn = session.ensure_turn(&event);
                 turn.record_output(event.occurred_at, *tokens, event.confidence);
             }
+            EventKind::RateReported {
+                output_tokens,
+                tokens_per_second,
+            } => {
+                if tokens_per_second.is_finite() && *tokens_per_second > 0.0 {
+                    let turn = session.ensure_turn(&event);
+                    turn.record_reported_rate(
+                        event.occurred_at,
+                        *output_tokens,
+                        *tokens_per_second,
+                        event.confidence,
+                    );
+                }
+            }
             EventKind::ToolStarted { call_id, .. } => {
                 let turn = session.ensure_turn(&event);
                 turn.waiting_for_input = false;
