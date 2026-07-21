@@ -1,6 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+
+use uuid::Uuid;
 
 use crate::model::{AppSnapshot, RateUnit, SessionSnapshot, SessionState, ToolId};
+
+const START_MATCH_TOLERANCE_SECS: u64 = 60;
 
 pub fn correlate_process_sessions(mut snapshot: AppSnapshot) -> AppSnapshot {
     let mut removed = HashSet::new();
@@ -29,25 +33,39 @@ pub fn correlate_process_sessions(mut snapshot: AppSnapshot) -> AppSnapshot {
         }
     }
 
-    let mut remaining_by_tool: HashMap<ToolId, (Vec<usize>, Vec<usize>)> = HashMap::new();
-    for (index, session) in snapshot.sessions.iter().enumerate() {
-        if removed.contains(&index) {
+    let mut candidates = Vec::new();
+    for process_index in process_indices(&snapshot.sessions) {
+        if removed.contains(&process_index) {
             continue;
         }
-        let entry = remaining_by_tool.entry(session.tool).or_default();
-        if is_process_only(session) {
-            if session.state != SessionState::Exited {
-                entry.0.push(index);
+        for (native_index, native) in snapshot.sessions.iter().enumerate() {
+            if removed.contains(&native_index)
+                || is_process_only(native)
+                || native.state == SessionState::Exited
+                || native.pid.is_some()
+                || native.tool != snapshot.sessions[process_index].tool
+            {
+                continue;
             }
-        } else if session.state != SessionState::Exited && session.pid.is_none() {
-            entry.1.push(index);
+            let distance = session_start_epoch_secs(&snapshot.sessions[process_index])
+                .abs_diff(session_start_epoch_secs(native));
+            if distance <= START_MATCH_TOLERANCE_SECS {
+                candidates.push((distance, process_index, native_index));
+            }
         }
     }
-    for (processes, natives) in remaining_by_tool.into_values() {
-        if processes.len() == 1 && natives.len() == 1 {
-            merge_process_into_native(&mut snapshot.sessions, processes[0], natives[0]);
-            removed.insert(processes[0]);
+    candidates.sort_unstable();
+
+    let mut claimed_processes = HashSet::new();
+    let mut claimed_natives = HashSet::new();
+    for (_distance, process_index, native_index) in candidates {
+        if claimed_processes.contains(&process_index) || claimed_natives.contains(&native_index) {
+            continue;
         }
+        claimed_processes.insert(process_index);
+        claimed_natives.insert(native_index);
+        merge_process_into_native(&mut snapshot.sessions, process_index, native_index);
+        removed.insert(process_index);
     }
 
     snapshot.sessions = snapshot
@@ -87,6 +105,14 @@ fn process_indices(sessions: &[SessionSnapshot]) -> Vec<usize> {
 
 fn is_process_only(session: &SessionSnapshot) -> bool {
     session.session_id.starts_with("process-")
+}
+
+fn session_start_epoch_secs(session: &SessionSnapshot) -> i64 {
+    Uuid::parse_str(&session.session_id)
+        .ok()
+        .and_then(|id| id.get_timestamp())
+        .and_then(|timestamp| i64::try_from(timestamp.to_unix().0).ok())
+        .unwrap_or_else(|| session.started_at.timestamp())
 }
 
 fn merge_process_into_native(
@@ -230,10 +256,25 @@ mod tests {
     }
 
     #[test]
-    fn ambiguous_processes_and_sessions_remain_separate() {
+    fn out_of_tolerance_processes_and_sessions_remain_separate() {
+        let native_started = Utc.timestamp_millis_opt(1_784_505_600_000).unwrap();
+        let mut first_process = session(
+            ToolId::Claude,
+            "process-1",
+            Some(1),
+            SessionState::Unknown,
+        );
+        first_process.started_at = native_started - chrono::Duration::minutes(2);
+        let mut second_process = session(
+            ToolId::Claude,
+            "process-2",
+            Some(2),
+            SessionState::Unknown,
+        );
+        second_process.started_at = native_started - chrono::Duration::minutes(3);
         let result = correlate_process_sessions(snapshot(vec![
-            session(ToolId::Claude, "process-1", Some(1), SessionState::Unknown),
-            session(ToolId::Claude, "process-2", Some(2), SessionState::Unknown),
+            first_process,
+            second_process,
             session(ToolId::Claude, "native-a", None, SessionState::Idle),
             session(ToolId::Claude, "native-b", None, SessionState::Idle),
         ]));
@@ -269,6 +310,92 @@ mod tests {
         ]));
 
         assert_eq!(result.sessions.len(), 2);
+    }
+
+    #[test]
+    fn start_time_match_selects_current_native_and_live_filter_removes_history() {
+        let process_started = Utc.timestamp_opt(1_784_639_940, 0).unwrap();
+        let mut process = session(
+            ToolId::GrokBuild,
+            "process-7",
+            Some(7),
+            SessionState::New,
+        );
+        process.started_at = process_started;
+        let mut current = session(
+            ToolId::GrokBuild,
+            "019f84d4-737f-7b53-859b-7b519e34f571",
+            None,
+            SessionState::Stream,
+        );
+        current.started_at = process_started + chrono::Duration::minutes(5);
+        let mut historical = session(
+            ToolId::GrokBuild,
+            "019f8493-10cf-7a71-b744-12a33cdfcf17",
+            None,
+            SessionState::Idle,
+        );
+        historical.last_seen_at = process_started + chrono::Duration::minutes(10);
+
+        let correlated = correlate_process_sessions(snapshot(vec![process, historical, current]));
+        let filtered = retain_live_process_sessions(
+            correlated,
+            &HashSet::from([(ToolId::GrokBuild, 7)]),
+        );
+
+        assert_eq!(filtered.sessions.len(), 1);
+        assert_eq!(
+            filtered.sessions[0].session_id,
+            "019f84d4-737f-7b53-859b-7b519e34f571",
+        );
+        assert_eq!(filtered.sessions[0].pid, Some(7));
+    }
+
+    #[test]
+    fn start_time_match_claims_each_process_and_native_once() {
+        let first_at = Utc.timestamp_opt(1_784_636_520, 0).unwrap();
+        let second_at = Utc.timestamp_opt(1_784_640_410, 0).unwrap();
+        let mut first_process = session(
+            ToolId::Codex,
+            "process-1",
+            Some(1),
+            SessionState::New,
+        );
+        first_process.started_at = first_at;
+        let mut second_process = session(
+            ToolId::Codex,
+            "process-2",
+            Some(2),
+            SessionState::New,
+        );
+        second_process.started_at = second_at;
+        let first_native = session(
+            ToolId::Codex,
+            "019f84a0-3971-79c1-b66e-37cb95a0de9c",
+            None,
+            SessionState::Stream,
+        );
+        let second_native = session(
+            ToolId::Codex,
+            "019f84db-942d-7920-936a-092152f36f01",
+            None,
+            SessionState::Stream,
+        );
+
+        let result = correlate_process_sessions(snapshot(vec![
+            first_process,
+            second_process,
+            first_native,
+            second_native,
+        ]));
+        let pids = result
+            .sessions
+            .iter()
+            .filter_map(|session| session.pid)
+            .collect::<HashSet<_>>();
+
+        assert_eq!(result.sessions.len(), 2);
+        assert_eq!(pids, HashSet::from([1, 2]));
     }
 
     #[test]
