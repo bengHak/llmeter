@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader};
 
 use chrono::{DateTime, Utc};
 use llmeter::adapters::{adapter_for, AdapterContext};
-use llmeter::model::{EventKind, ToolId};
+use llmeter::model::{Confidence, EventKind, ToolId};
 
 fn parse_fixture(tool: ToolId, name: &str) -> Vec<llmeter::model::TelemetryEvent> {
     let file = File::open(format!("tests/fixtures/{name}.jsonl")).unwrap();
@@ -75,6 +75,150 @@ fn codex_exec_and_rollout_records_capture_usage_without_body() {
 
     let encoded = serde_json::to_string(&events).unwrap();
     assert!(!encoded.contains("private codex answer"));
+}
+
+#[test]
+fn codex_calculates_rates_from_rollout_boundaries() {
+    let mut adapter = adapter_for(ToolId::Codex);
+    let observed_at = DateTime::parse_from_rfc3339("2026-07-20T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    let records = [
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:00Z",
+            "type": "event_msg",
+            "payload": {"type": "task_started"}
+        }),
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:02Z",
+            "type": "response_item",
+            "payload": {"type": "custom_tool_call", "call_id": "tool-1", "name": "shell"}
+        }),
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:08Z",
+            "type": "response_item",
+            "payload": {"type": "custom_tool_call_output", "call_id": "tool-1"}
+        }),
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:08Z",
+            "type": "event_msg",
+            "payload": {
+                "type": "token_count",
+                "info": {
+                    "total_token_usage": {"output_tokens": 20},
+                    "last_token_usage": {"output_tokens": 20}
+                }
+            }
+        }),
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:10Z",
+            "type": "response_item",
+            "payload": {"type": "custom_tool_call", "call_id": "tool-2", "name": "shell"}
+        }),
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:14Z",
+            "type": "response_item",
+            "payload": {"type": "custom_tool_call_output", "call_id": "tool-2"}
+        }),
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:14Z",
+            "type": "event_msg",
+            "payload": {
+                "type": "token_count",
+                "info": {
+                    "total_token_usage": {"output_tokens": 30},
+                    "last_token_usage": {"output_tokens": 10}
+                }
+            }
+        }),
+    ];
+    let events = records
+        .iter()
+        .flat_map(|record| {
+            adapter.parse_record(record, &AdapterContext::new("codex-rate", observed_at))
+        })
+        .collect::<Vec<_>>();
+    let rates = events
+        .iter()
+        .filter_map(|event| match event.kind {
+            EventKind::RateReported {
+                output_tokens,
+                tokens_per_second,
+            } => Some((output_tokens, tokens_per_second, event.confidence)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        rates,
+        vec![
+            (20, 10.0, Confidence::Derived),
+            (10, 5.0, Confidence::Derived),
+        ]
+    );
+}
+
+#[test]
+fn codex_counter_reset_restarts_rate_baseline() {
+    let mut adapter = adapter_for(ToolId::Codex);
+    let observed_at = DateTime::parse_from_rfc3339("2026-07-20T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    let records = [
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:00Z",
+            "type": "event_msg",
+            "payload": {"type": "token_count", "info": {"total_token_usage": {"output_tokens": 100}}}
+        }),
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:01Z",
+            "type": "event_msg",
+            "payload": {"type": "task_started"}
+        }),
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:02Z",
+            "type": "event_msg",
+            "payload": {"type": "agent_message", "message": "private"}
+        }),
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:02Z",
+            "type": "event_msg",
+            "payload": {"type": "token_count", "info": {"total_token_usage": {"output_tokens": 10}}}
+        }),
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:03Z",
+            "type": "event_msg",
+            "payload": {"type": "task_started"}
+        }),
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:05Z",
+            "type": "event_msg",
+            "payload": {"type": "agent_message", "message": "private"}
+        }),
+        serde_json::json!({
+            "timestamp": "2026-07-20T00:00:05Z",
+            "type": "event_msg",
+            "payload": {"type": "token_count", "info": {"total_token_usage": {"output_tokens": 20}}}
+        }),
+    ];
+    let events = records
+        .iter()
+        .flat_map(|record| {
+            adapter.parse_record(record, &AdapterContext::new("codex-rate", observed_at))
+        })
+        .collect::<Vec<_>>();
+    let rates = events
+        .iter()
+        .filter_map(|event| match event.kind {
+            EventKind::RateReported {
+                output_tokens,
+                tokens_per_second,
+            } => Some((output_tokens, tokens_per_second)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(rates, vec![(10, 5.0)]);
 }
 
 #[test]
