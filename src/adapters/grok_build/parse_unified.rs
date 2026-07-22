@@ -54,13 +54,16 @@ impl GrokBuildAdapter {
                 else {
                     return Vec::new();
                 };
-                let Some(tokens_per_second) = value
-                    .pointer("/ctx/tokens_per_sec")
-                    .and_then(Value::as_f64)
-                    .filter(|rate| rate.is_finite() && *rate > 0.0)
-                else {
-                    return Vec::new();
-                };
+                let tokens_per_second =
+                    first_u64_at(value, &[&["ctx", "model_elapsed_ms"]])
+                        .and_then(|elapsed| {
+                            elapsed.checked_sub(
+                                first_u64_at(value, &[&["ctx", "ttft_ms"]])
+                                    .unwrap_or_default(),
+                            )
+                        })
+                        .filter(|duration| *duration > 0 && output_tokens > 0)
+                        .map(|duration| output_tokens as f64 * 1_000.0 / duration as f64);
                 let delta = UsageFields {
                     input_tokens: first_u64_at(value, &[&["ctx", "prompt_tokens"]]),
                     output_tokens: Some(output_tokens),
@@ -76,29 +79,31 @@ impl GrokBuildAdapter {
                     add_usage(total, delta);
                     (*total).into_event(true)
                 };
-                vec![
-                    event(
+                let mut output = Vec::with_capacity(2);
+                if let Some(tokens_per_second) = tokens_per_second {
+                    output.push(event(
                         self.tool(),
                         &session,
                         None,
                         value,
                         context,
-                        Confidence::Exact,
+                        Confidence::Derived,
                         EventKind::RateReported {
                             output_tokens,
                             tokens_per_second,
                         },
-                    ),
-                    event(
-                        self.tool(),
-                        &session,
-                        None,
-                        value,
-                        context,
-                        Confidence::Exact,
-                        cumulative,
-                    ),
-                ]
+                    ));
+                }
+                output.push(event(
+                    self.tool(),
+                    &session,
+                    None,
+                    value,
+                    context,
+                    Confidence::Exact,
+                    cumulative,
+                ));
+                output
             }
             _ => Vec::new(),
         }

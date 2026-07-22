@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, TimeZone, Utc};
 use llmeter::adapters::{adapter_for, AdapterContext};
-use llmeter::model::{EventKind, ToolId};
+use llmeter::model::{Confidence, EventKind, ToolId};
 
 fn at(value: &str) -> DateTime<Utc> {
     DateTime::parse_from_rfc3339(value)
@@ -290,7 +290,9 @@ fn grok_unified_metrics_fold_child_inference_into_the_pid_root() {
             "src": "shell",
             "msg": "shell.turn.inference_done",
             "ctx": {
-                "tokens_per_sec": 60.0,
+                "tokens_per_sec": 1.0,
+                "model_elapsed_ms": 700,
+                "ttft_ms": 500,
                 "completion_tokens": 12,
                 "prompt_tokens": 100,
                 "cached_prompt_tokens": 40,
@@ -304,7 +306,9 @@ fn grok_unified_metrics_fold_child_inference_into_the_pid_root() {
             "src": "shell",
             "msg": "shell.turn.inference_done",
             "ctx": {
-                "tokens_per_sec": 100.0,
+                "tokens_per_sec": 1.0,
+                "model_elapsed_ms": 400,
+                "ttft_ms": 200,
                 "completion_tokens": 20,
                 "prompt_tokens": 180,
                 "cached_prompt_tokens": 60,
@@ -326,12 +330,22 @@ fn grok_unified_metrics_fold_child_inference_into_the_pid_root() {
         &event.kind,
         EventKind::Metadata { cwd: Some(cwd), .. } if cwd == "/work/AquaTick"
     )));
+    let rates = events
+        .iter()
+        .filter_map(|event| match event.kind {
+            EventKind::RateReported {
+                tokens_per_second,
+                ..
+            } => Some((tokens_per_second, event.confidence)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
     assert_eq!(
-        events
-            .iter()
-            .filter(|event| matches!(event.kind, EventKind::RateReported { .. }))
-            .count(),
-        2
+        rates,
+        vec![
+            (60.0, Confidence::Derived),
+            (100.0, Confidence::Derived),
+        ]
     );
     assert!(events.iter().any(|event| matches!(
         event.kind,
@@ -348,4 +362,38 @@ fn grok_unified_metrics_fold_child_inference_into_the_pid_root() {
         events.last().unwrap().occurred_at,
         at("2026-07-21T14:31:15.782Z")
     );
+}
+
+#[test]
+fn grok_unified_invalid_timing_keeps_usage() {
+    let mut adapter = adapter_for(ToolId::GrokBuild);
+    let observed_at = Utc.timestamp_opt(1_784_505_900, 0).unwrap();
+    let value = serde_json::json!({
+        "ts": "2026-07-21T14:31:09.280Z",
+        "pid": 93524,
+        "sid": "root-session",
+        "msg": "shell.turn.inference_done",
+        "ctx": {
+            "tokens_per_sec": 60.0,
+            "model_elapsed_ms": 500,
+            "ttft_ms": 500,
+            "completion_tokens": 12,
+            "prompt_tokens": 100
+        }
+    });
+
+    let events = adapter.parse_record(&value, &AdapterContext::new("unified", observed_at));
+
+    assert!(!events
+        .iter()
+        .any(|event| matches!(event.kind, EventKind::RateReported { .. })));
+    assert!(events.iter().any(|event| matches!(
+        event.kind,
+        EventKind::Usage {
+            input_tokens: Some(100),
+            output_tokens: Some(12),
+            cumulative: true,
+            ..
+        }
+    )));
 }
