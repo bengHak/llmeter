@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
+use uuid::Uuid;
 
 use crate::adapters::{adapter_for, Adapter, AdapterContext};
 use crate::model::{TelemetryEvent, ToolId};
@@ -276,10 +277,19 @@ impl JournalCursor {
 }
 
 fn fallback_session_id(path: &Path, tool: ToolId) -> String {
-    path.file_stem()
+    let stem = path
+        .file_stem()
         .and_then(|name| name.to_str())
-        .filter(|name| !name.is_empty())
-        .map(str::to_owned)
+        .filter(|name| !name.is_empty());
+    if tool == ToolId::Codex {
+        if let Some(session_id) = stem
+            .and_then(|name| name.get(name.len().saturating_sub(36)..))
+            .filter(|candidate| Uuid::parse_str(candidate).is_ok())
+        {
+            return session_id.to_owned();
+        }
+    }
+    stem.map(str::to_owned)
         .unwrap_or_else(|| format!("{}-passive", tool.as_str()))
 }
 
@@ -446,6 +456,27 @@ mod tests {
         .unwrap();
         let mut cursor = SourceCursor::new(ToolId::Codex, &path, 4096);
         let at = Utc.timestamp_millis_opt(1_784_677_991_000).unwrap();
+
+        let events = cursor.poll(&at).await.unwrap().events;
+
+        assert!(!events.is_empty());
+        assert!(events.iter().all(|event| event.session_id == session));
+    }
+
+    #[tokio::test]
+    async fn codex_large_rollout_uses_filename_session_id_when_meta_is_outside_bootstrap() {
+        let temp = tempdir().unwrap();
+        let session = "019f871c-a374-7af1-bdee-4ab563541fb2";
+        let path = temp
+            .path()
+            .join(format!("rollout-2026-07-22T08-57-08-{session}.jsonl"));
+        let contents = format!(
+            "{{\"timestamp\":\"2026-07-21T23:57:08Z\",\"type\":\"session_meta\",\"payload\":{{\"id\":\"{session}\"}}}}\n{{\"padding\":\"{}\"}}\n{{\"timestamp\":\"2026-07-22T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{{\"type\":\"task_started\"}}}}\n",
+            "x".repeat(1024)
+        );
+        std::fs::write(&path, contents).unwrap();
+        let mut cursor = SourceCursor::new(ToolId::Codex, &path, 512);
+        let at = Utc.timestamp_millis_opt(1_784_678_400_000).unwrap();
 
         let events = cursor.poll(&at).await.unwrap().events;
 
