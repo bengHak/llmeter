@@ -65,6 +65,9 @@ impl ToolDescriptor {
 
     pub fn matches_command(&self, command: &str) -> bool {
         let normalized = command.to_ascii_lowercase();
+        if self.id == ToolId::Codex && is_codex_internal_helper(&normalized) {
+            return false;
+        }
         let matched = self.executables.iter().any(|executable| {
             command_tokens(&normalized).any(|token| {
                 Path::new(token)
@@ -82,15 +85,44 @@ impl ToolDescriptor {
     }
 }
 
+fn is_codex_internal_helper(command: &str) -> bool {
+    command.contains("codex framework.framework")
+        || command.contains("codex (renderer)")
+        || command.contains("codex (service)")
+        || command.contains("codex (gpu)")
+        || command.contains("codex-code-mode-host")
+        || command.contains("skycomputeruseservice")
+}
+
 fn command_has_subcommand(command: &str, executable: &str, subcommand: &str) -> bool {
     let tokens = command_tokens(command).collect::<Vec<_>>();
-    tokens.windows(2).any(|window| {
-        Path::new(window[0])
+    let mut iter = tokens.iter();
+    while let Some(token) = iter.next() {
+        let is_exec = Path::new(token)
             .file_name()
             .and_then(|name| name.to_str())
-            == Some(executable)
-            && window[1] == subcommand
-    })
+            == Some(executable);
+        if is_exec {
+            let mut skip_next = false;
+            while let Some(arg) = iter.next() {
+                if skip_next {
+                    skip_next = false;
+                    continue;
+                }
+                if *arg == "-c" || *arg == "--config" || *arg == "-o" || *arg == "--option" {
+                    skip_next = true;
+                    continue;
+                }
+                if *arg == subcommand {
+                    return true;
+                }
+                if !arg.starts_with('-') {
+                    return false;
+                }
+            }
+        }
+    }
+    false
 }
 
 fn command_tokens(command: &str) -> impl Iterator<Item = &str> {

@@ -127,6 +127,17 @@ impl Adapter for ClaudeAdapter {
             )),
             "assistant" if value.get("hook_event_name").is_none() => {
                 let turn = self.state.ensure_turn(&session, turn_id(value));
+                if let Some(metadata) = metadata_event(value) {
+                    output.push(event(
+                        self.tool(),
+                        &session,
+                        Some(&turn),
+                        value,
+                        context,
+                        Confidence::Exact,
+                        metadata,
+                    ));
+                }
                 if !self.state.saw_output(&session) {
                     let mut texts = Vec::new();
                     collect_texts_at(value, &["message", "content"], &mut texts);
@@ -154,6 +165,20 @@ impl Adapter for ClaudeAdapter {
                         Confidence::Exact,
                         usage.into_event(false),
                     ));
+                }
+                if let Some(stop_reason) = string_at(value, &["message", "stop_reason"]) {
+                    if stop_reason == "end_turn" || stop_reason == "stop_sequence" {
+                        output.push(event(
+                            self.tool(),
+                            &session,
+                            Some(&turn),
+                            value,
+                            context,
+                            Confidence::Exact,
+                            EventKind::TurnFinished { success: true },
+                        ));
+                        self.state.end_turn(&session);
+                    }
                 }
             }
             "user" if value.get("hook_event_name").is_none() => {

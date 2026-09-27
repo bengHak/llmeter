@@ -7,6 +7,7 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Sparkline, Table, TableState, Wrap};
 use ratatui::Frame;
+use tokio::sync::mpsc;
 use unicode_width::UnicodeWidthStr;
 
 use crate::model::{AppSnapshot, MetricValue, RateUnit, SessionSnapshot, SessionState};
@@ -44,7 +45,6 @@ impl SortMode {
 }
 
 struct App {
-    source: SnapshotSource,
     snapshot: AppSnapshot,
     selected: usize,
     paused: bool,
@@ -55,13 +55,9 @@ struct App {
 }
 
 impl App {
-    async fn new(source: SnapshotSource) -> Self {
-        let snapshot = refresh_source(&source)
-            .await
-            .unwrap_or_else(|_| AppSnapshot::empty(chrono::Utc::now()));
+    fn new() -> Self {
         Self {
-            source,
-            snapshot,
+            snapshot: AppSnapshot::empty(chrono::Utc::now()),
             selected: 0,
             paused: false,
             sort: SortMode::State,
@@ -71,11 +67,12 @@ impl App {
         }
     }
 
-    async fn refresh(&mut self) {
+    fn apply_snapshot(&mut self, result: Result<AppSnapshot>) {
         if self.paused {
+            self.last_refresh = Instant::now();
             return;
         }
-        match refresh_source(&self.source).await {
+        match result {
             Ok(mut snapshot) => {
                 sort_sessions(&mut snapshot.sessions, self.sort);
                 self.throughput_history
@@ -135,32 +132,111 @@ async fn run(source: SnapshotSource) -> Result<()> {
     run_loop(&mut terminal, source).await
 }
 
+fn spawn_event_reader() -> (mpsc::UnboundedReceiver<Event>, tokio::sync::oneshot::Sender<()>) {
+    let (tx, rx) = mpsc::unbounded_channel();
+    let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel();
+
+    std::thread::spawn(move || {
+        loop {
+            if stop_rx.try_recv().is_ok() {
+                break;
+            }
+            match event::poll(Duration::from_millis(20)) {
+                Ok(true) => match event::read() {
+                    Ok(event) => {
+                        if tx.send(event).is_err() {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                },
+                Ok(false) => {}
+                Err(_) => break,
+            }
+        }
+    });
+
+    (rx, stop_tx)
+}
+
 async fn run_loop(terminal: &mut ratatui::DefaultTerminal, source: SnapshotSource) -> Result<()> {
-    let mut app = App::new(source).await;
-    app.refresh().await;
+    let mut app = App::new();
+
+    let (snapshot_tx, mut snapshot_rx) = mpsc::channel(4);
+    let (trigger_tx, mut trigger_rx) = mpsc::channel::<()>(4);
+
+    let worker_source = source.clone();
+    let worker_handle = tokio::spawn(async move {
+        let first = refresh_source(&worker_source).await;
+        if snapshot_tx.send(first).await.is_err() {
+            return;
+        }
+
+        let mut refresh_interval = tokio::time::interval(Duration::from_millis(1000));
+        refresh_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            tokio::select! {
+                _ = refresh_interval.tick() => {
+                    let snapshot = refresh_source(&worker_source).await;
+                    if snapshot_tx.send(snapshot).await.is_err() {
+                        break;
+                    }
+                }
+                Some(()) = trigger_rx.recv() => {
+                    let snapshot = refresh_source(&worker_source).await;
+                    if snapshot_tx.send(snapshot).await.is_err() {
+                        break;
+                    }
+                }
+            }
+        }
+    });
+
+    let (mut event_rx, stop_event_reader) = spawn_event_reader();
+    let mut redraw_interval = tokio::time::interval(Duration::from_millis(50));
+    redraw_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     loop {
         terminal.draw(|frame| render(frame, &app))?;
 
-        if app.last_refresh.elapsed() >= Duration::from_secs(1) {
-            app.refresh().await;
-        }
+        tokio::select! {
+            biased;
 
-        if event::poll(Duration::from_millis(50))? {
-            match event::read()? {
-                Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => break,
-                    KeyCode::Char('j') | KeyCode::Down => app.select_next(),
-                    KeyCode::Char('k') | KeyCode::Up => app.select_previous(),
-                    KeyCode::Char('p') => app.paused = !app.paused,
-                    KeyCode::Char('s') => app.cycle_sort(),
-                    KeyCode::Char('r') => app.refresh().await,
+            maybe_event = event_rx.recv() => {
+                let Some(event) = maybe_event else {
+                    break;
+                };
+                match event {
+                    Event::Key(key) if key.kind != KeyEventKind::Release => {
+                        match key.code {
+                            KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Char('ㅂ') | KeyCode::Esc => break,
+                            KeyCode::Char('c') if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => break,
+                            KeyCode::Char('j') | KeyCode::Down => app.select_next(),
+                            KeyCode::Char('k') | KeyCode::Up => app.select_previous(),
+                            KeyCode::Char('p') => app.paused = !app.paused,
+                            KeyCode::Char('s') => app.cycle_sort(),
+                            KeyCode::Char('r') => {
+                                let _ = trigger_tx.try_send(());
+                            }
+                            _ => {}
+                        }
+                    }
+                    Event::Resize(_, _) => {}
                     _ => {}
-                },
-                _ => {}
+                }
             }
+
+            Some(snapshot_res) = snapshot_rx.recv() => {
+                app.apply_snapshot(snapshot_res);
+            }
+
+            _ = redraw_interval.tick() => {}
         }
     }
+
+    let _ = stop_event_reader.send(());
+    worker_handle.abort();
     Ok(())
 }
 

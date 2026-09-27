@@ -317,6 +317,8 @@ pub fn generic_usage(value: &Value) -> UsageFields {
                 &["usage", "cachedInputTokens"],
                 &["usage", "cache_read_input_tokens"],
                 &["message", "usage", "cached_input_tokens"],
+                &["message", "usage", "cache_read_input_tokens"],
+                &["message", "usage", "cache_creation_input_tokens"],
                 &["llm_response", "usageMetadata", "cachedContentTokenCount"],
             ],
         ),

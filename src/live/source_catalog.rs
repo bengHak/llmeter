@@ -64,6 +64,10 @@ fn walk_root(
     if depth > max_depth || !path.exists() {
         return Ok(());
     }
+    let file_name = path.file_name().and_then(OsStr::to_str).unwrap_or_default();
+    if depth > 0 && is_ignored_dir(file_name) {
+        return Ok(());
+    }
 
     let metadata = match fs::symlink_metadata(path) {
         Ok(metadata) => metadata,
@@ -132,6 +136,24 @@ pub fn matches_session_source(tool: ToolId, path: &Path) -> bool {
 
 fn contains_any(value: &str, needles: &[&str]) -> bool {
     needles.iter().any(|needle| value.contains(needle))
+}
+
+fn is_ignored_dir(name: &str) -> bool {
+    matches!(
+        name,
+        ".git"
+            | ".tmp"
+            | "node_modules"
+            | "cache"
+            | ".cache"
+            | "backups"
+            | "brain"
+            | "tasks"
+            | "mcp"
+            | "skills"
+            | "worktrees"
+            | "antigravity-cli"
+    )
 }
 
 #[cfg(test)]

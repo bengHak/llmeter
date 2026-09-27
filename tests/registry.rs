@@ -108,6 +108,18 @@ fn codex_app_server_is_not_a_user_session() {
         None,
     );
     assert_eq!(
+        parse_ps_line(" 3422 1224 91 codex -c features.code_mode_host=true app-server --analytics-default-enabled")
+            .unwrap()
+            .tool,
+        None,
+    );
+    assert_eq!(
+        parse_ps_line(" 3423 1224 91 /Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/154/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer) --type=renderer")
+            .unwrap()
+            .tool,
+        None,
+    );
+    assert_eq!(
         parse_ps_line(" 41526 54717 12 codex --yolo").unwrap().tool,
         Some(ToolId::Codex),
     );

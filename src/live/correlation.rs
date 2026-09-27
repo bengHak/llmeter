@@ -68,6 +68,34 @@ pub fn correlate_process_sessions(mut snapshot: AppSnapshot) -> AppSnapshot {
         removed.insert(process_index);
     }
 
+    for descriptor in crate::registry::all_tools() {
+        let tool = descriptor.id;
+        let remaining_processes: Vec<usize> = process_indices(&snapshot.sessions)
+            .into_iter()
+            .filter(|&idx| !removed.contains(&idx) && snapshot.sessions[idx].tool == tool)
+            .collect();
+        let remaining_natives: Vec<usize> = snapshot
+            .sessions
+            .iter()
+            .enumerate()
+            .filter(|(idx, session)| {
+                !removed.contains(idx)
+                    && !is_process_only(session)
+                    && session.state != SessionState::Exited
+                    && session.pid.is_none()
+                    && session.tool == tool
+            })
+            .map(|(idx, _)| idx)
+            .collect();
+
+        if remaining_processes.len() == 1 && remaining_natives.len() == 1 {
+            let p_idx = remaining_processes[0];
+            let n_idx = remaining_natives[0];
+            merge_process_into_native(&mut snapshot.sessions, p_idx, n_idx);
+            removed.insert(p_idx);
+        }
+    }
+
     snapshot.sessions = snapshot
         .sessions
         .into_iter()
