@@ -82,24 +82,35 @@ cargo build --release
 
 After install, run `llmeter` with no extra setup: it discovers supported CLI processes and known session stores. On first pass it bootstraps recent history; after that it only processes newly appended bytes per file. `llmeter setup <tool>` is optional—it adds precise hook, RPC, and OTLP events rather than being required for discovery.
 
-Print a one-shot JSON snapshot of running processes and known session files:
+Run the interactive dashboard:
 
 ```bash
-llmeter --once --json
+llmeter
 ```
 
-Attach explicit JSONL sources:
+Print a one-shot terminal table or JSON snapshot of discovered sessions:
 
 ```bash
-llmeter --source codex:$HOME/.codex/sessions/2026/07/20/rollout-demo.jsonl
-llmeter --source pi:/tmp/pi-session.jsonl \
-        --source qwen:/tmp/qwen-telemetry.jsonl
+# Formatted table snapshot
+llmeter once
+
+# Machine-readable JSON snapshot
+llmeter json
 ```
 
-Replay a historical file:
+Inspect discovered CLI executables, active processes, and session roots:
 
 ```bash
-llmeter replay /tmp/pi-session.jsonl --tool pi --json
+llmeter doctor
+```
+
+Replay a normalized journal file:
+
+```bash
+# Interactive TUI playback
+llmeter replay examples/normalized-session.jsonl
+
+# Snapshot dump from journal
 llmeter replay examples/normalized-session.jsonl --json
 ```
 
@@ -109,7 +120,7 @@ llmeter replay examples/normalized-session.jsonl --json
 - `NOW`: output throughput over the last 2 seconds
 - `AVG`: average throughput from first to last output of the current or latest turn
 - `TOOL`: cumulative tool-call runtime
-- `STALL`: time spent producing output with no new output for at least the default 2 seconds
+- `STALL`: time spent producing output with no new output for at least the default 2.5 seconds
 
 Each metric shows its own confidence grade:
 
@@ -120,83 +131,110 @@ Each metric shows its own confidence grade:
 | `~` | Estimated | Based on character volume, process signals, or indirect events |
 | `-` | Unknown | No usable data |
 
-Rates are token-only (`tok/s`). Events without token counts still advance TTFT/stall timing, but do not invent a character throughput.
+Rates default to token throughput (`tok/s` or `t/s`). When tools emit only character or byte deltas without token metadata (e.g. Grok Build, raw streams), throughput is measured in characters (`c/s` or `char/s`) or bytes (`B/s`).
 
 ## 4. Per-tool wiring
 
-See which connection methods work in your environment:
+Diagnose supported tools and connection paths in your environment:
 
 ```bash
-llmeter adapters
-llmeter setup pi
+llmeter doctor
+```
+
+Print safe integration snippets or hook configurations:
+
+```bash
 llmeter setup claude
+llmeter setup droid
+llmeter setup gemini
+llmeter setup kiro
+llmeter setup pi
 llmeter setup codex
+llmeter setup opencode
+llmeter setup qwen
 llmeter setup grok-build
 ```
 
 ### Pi
 
-Pi session JSONL is auto-discovered. You can also attach a file explicitly:
+Pi session JSONL files are auto-discovered under `~/.pi/agent/sessions`. You can also wrap an RPC session or ingest past session logs:
 
 ```bash
-llmeter --source pi:/path/to/session.jsonl
+# Wrap an interactive or RPC child process
+llmeter wrap --tool pi -- pi --mode rpc
+
+# Ingest saved session JSONL into the journal
+llmeter ingest --tool pi --file ~/.pi/agent/sessions/<session>.jsonl
 ```
 
 ### Factory Droid
 
-Normalize structured output into the journal. `ingest` reads stdin line by line and flushes each event batch immediately, so a running `llmeter` in another terminal updates before the stream ends:
+Normalize structured output or hook events into the journal. `ingest` reads stdin line by line and flushes each event batch immediately:
 
 ```bash
 droid exec -o stream-json <args> \
-  | llmeter ingest --tool droid --input -
+  | llmeter ingest --tool droid
+
+# Or configure command hooks
+llmeter setup droid
+llmeter hook --tool droid
 ```
 
 ### Gemini CLI and Qwen Code
 
-Attach JSONL that a hook or telemetry exporter appends:
+Attach JSONL or ingest from hook commands:
 
 ```bash
-llmeter --source gemini:/tmp/gemini-events.jsonl
-llmeter --source qwen:/tmp/qwen-events.jsonl
-```
+# Ingest an exported log file
+llmeter ingest --tool gemini --file /tmp/gemini-events.jsonl
+llmeter ingest --tool qwen --file /tmp/qwen-events.jsonl
 
-Or normalize hook-command stdin into the local journal:
-
-```bash
+# Or normalize hook-command stdin into the local journal
 llmeter hook --tool gemini
 llmeter hook --tool qwen
 ```
 
 ### Claude Code
 
-Transcript JSONL is discovered under the known default root. Lifecycle hooks can use this command sink:
+Transcript JSONL is automatically discovered under `~/.claude/projects`. Lifecycle hooks can use the command sink:
 
 ```bash
+# Check hook configuration
+llmeter setup claude
+
+# Hook receiver
 llmeter hook --tool claude
 ```
 
 ### Codex CLI
 
-Rollout JSONL is auto-discovered under the default session root:
+Interactive rollout JSONL is auto-discovered under `~/.codex/sessions`. For headless exec, wrap the command:
 
 ```bash
-llmeter --source codex:/path/to/rollout.jsonl
+llmeter wrap --tool codex -- codex exec --json <prompt>
 ```
 
 ### OpenCode
 
-Save server events, SSE, or `run --format json` output as JSONL and attach it:
+Connect to OpenCode's live Server-Sent Events (SSE) endpoint or wrap CLI execution:
 
 ```bash
-llmeter --source opencode:/tmp/opencode-events.jsonl
+# Connect to running opencode server SSE
+llmeter connect --tool opencode --url http://127.0.0.1:4096/global/event
+
+# Or ingest saved server events
+llmeter ingest --tool opencode --file /tmp/opencode-events.jsonl
 ```
 
 ### Kiro CLI
 
-Attach hook or ACP wire JSONL:
+Attach hook or ACP wire:
 
 ```bash
-llmeter --source kiro:/tmp/kiro-events.jsonl
+# ACP stdio wrapper
+llmeter wrap --tool kiro -- kiro-cli acp
+
+# Hook command receiver
 llmeter hook --tool kiro
 ```
 
@@ -227,34 +265,32 @@ Grok prompts, responses, thinking content, and raw tool I/O are not stored in th
 ## 5. CLI commands
 
 ```text
-llmeter [watch]
-llmeter --once --json
-llmeter replay <FILE> [--tool <TOOL>] [--json]
-llmeter ingest --tool <TOOL> --input <FILE|-> [--output <JOURNAL>]
-llmeter hook --tool <TOOL> [--output <JOURNAL>]
-llmeter doctor [--json]
-llmeter setup <TOOL>
-llmeter adapters [--json]
+llmeter [tui]                                  Run live terminal dashboard (default)
+llmeter once                                   Print one human-readable snapshot table
+llmeter json                                   Print one JSON snapshot
+llmeter doctor                                 Show executable, process, session-root, and journal diagnostics
+llmeter setup <TOOL> [--binary <PATH>]         Print safe integration snippets for a tool
+llmeter hook --tool <TOOL>                     Receive command-hook JSON payload from stdin
+llmeter wrap --tool <TOOL> -- <COMMAND...>     Proxy a child process while measuring its stream
+llmeter connect [--tool <TOOL>] [--url <URL>]  Connect to a tool's SSE endpoint (default: OpenCode)
+llmeter ingest --tool <TOOL> [--file <PATH>]   Parse JSONL records into normalized journal (reads stdin if omitted)
+llmeter replay <FILE> [--json]                 Replay a normalized journal in TUI or print JSON snapshot
 ```
 
-Main global options:
+Global options:
 
 ```text
---source <TOOL:PATH>       repeatable
---journal <PATH>           normalized journal path
---no-auto-discover         disable process and default session-root discovery
---refresh-ms <MS>          TUI refresh interval, default 250ms
---process-scan-ms <MS>     process/session rescan interval, default 2000ms
---stall-threshold-ms <MS>  stall threshold, default 2000ms
+--data-dir <DIR>   Override base data directory (default: ~/.local/share/llmeter or OS local data, env: LLMETER_DATA_DIR)
 ```
 
-TUI keys:
+Interactive TUI controls:
 
 ```text
-j/k or ↑/↓  select session
-p           pause/resume
-r           refresh now
-q or Esc    quit
+Tab          Switch focus between panels (Active Sessions, Run Ledger, Inspector)
+j/k or ↓/↑   Navigate sessions / scroll inspector
+s            Cycle sort mode (State -> TPS -> TTFT)
+Enter        Inspect selected session details / close inspector
+q / Esc      Quit (also supports Q, Ctrl+C, or Korean 'ㅂ')
 ```
 
 ## 6. Architecture
@@ -295,7 +331,7 @@ Prompts, response bodies, tool arguments, API keys, and raw error messages are n
 ## 8. Known limitations
 
 - There are no live smoke tests against real user environments with external CLI binaries installed. Parsers are verified with fixtures and replay tests based on official event surfaces.
-- There is no network server yet that subscribes directly to OpenCode SSE, Qwen daemon SSE, or Gemini OTLP. Today events are tailed as recorded JSONL or streamed as structured stdout via `ingest`.
+- Direct network subscriptions currently support SSE endpoints (`llmeter connect` for OpenCode). Gemini OTLP or custom daemon telemetry require exporting as JSONL or streaming via `ingest`.
 - Process and native session rows merge only when they share the same PID or a clear 1:1 relationship. Ambiguous multi-candidate cases stay as separate rows to avoid wrong merges.
 - If internal session file schemas change (Codex, Claude, etc.), the corresponding parser fixtures and mappings must be updated.
 - Dynamic plugin ABI, remote hosts, Kubernetes, and a web dashboard are out of Phase 1–2 scope.
